@@ -44,7 +44,7 @@ test('formati di scadenza italiani e internazionali', () => {
     ['DIC 2028', '2028-12-31']
   ];
   for (const [line, expected] of cases) {
-    const parsed = R.parse(line, {role: 'label'});
+    const parsed = R.parse(line, {role: 'label', now: '2026-01-15T12:00:00Z'});
     assert.equal(parsed.expiry, expected, line);
   }
 });
@@ -144,7 +144,7 @@ test('senza nessun indizio l’app si astiene invece di indovinare', () => {
   const signal = R.merge(R.parse('', {role: 'pack'}), R.parse('', {role: 'label'}));
   assert.deepEqual(R.rank(dispensa(), signal), []);
   assert.deepEqual(R.draft(signal, {location: 'Frigorifero'}), {
-    name: '', qty: 1, unit: 'pz', min: 1, category: 'Altro', location: 'Frigorifero', expiry: '', barcode: '', notes: '', scan: {keywords: []}
+    name: '', qty: 1, unit: 'pz', min: 1, category: 'Altro', location: 'Frigorifero', expiry: '', production: '', barcode: '', notes: '', scan: {keywords: []}
   });
 });
 
@@ -200,4 +200,28 @@ test('luogo di conservazione suggerito automaticamente dalla categoria e dal tes
   assert.equal(R.locationOf('Latticini e uova', 'Latte parzialmente scremato UHT lunga conservazione'), 'Dispensa');
   assert.equal(R.locationOf('Carne e pesce', 'Tonno all\'olio di oliva in scatola'), 'Dispensa');
   assert.equal(R.locationOf('Pasta e cereali', 'Spaghetti di semola'), 'Dispensa');
+});
+
+test('una data antecedente a oggi è produzione, non scadenza', () => {
+  const ref = '2026-11-07T12:00:00Z';
+  const soloPassata = R.parse('SCADENZA 18/04/2026', {role: 'expiry', now: ref});
+  assert.equal(soloPassata.expiry, '');
+  assert.equal(soloPassata.production, '2026-04-18');
+  const futura = R.parse('SCADENZA 18/04/2027', {role: 'expiry', now: ref});
+  assert.equal(futura.expiry, '2027-04-18');
+  assert.equal(futura.production, '');
+  const oggi = R.parse('SCADENZA 07/11/2026', {role: 'expiry', now: ref});
+  assert.equal(oggi.expiry, '2026-11-07');
+  assert.equal(oggi.production, '');
+});
+
+test('produzione e scadenza sulla stessa confezione restano separate', () => {
+  const ref = '2026-11-07T12:00:00Z';
+  const parsed = R.parse('PRODOTTO IL 10/01/2026\nDA CONSUMARSI ENTRO 10/01/2028', {role: 'expiry', now: ref});
+  assert.equal(parsed.production, '2026-01-10');
+  assert.equal(parsed.expiry, '2028-01-10');
+  const signal = R.merge(R.parse('', {role: 'pack', now: ref}), parsed);
+  assert.equal(signal.production, '2026-01-10');
+  assert.equal(signal.expiry, '2028-01-10');
+  assert.equal(R.draft(signal).production, '2026-01-10');
 });

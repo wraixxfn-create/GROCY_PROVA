@@ -192,13 +192,20 @@
     return candidate;
   }
 
-  function pickExpiry(lines, options) {
+  const EXPIRY_KEY = /(SCAD|ENTRO|CONSUMARSI|PREFERIBIL|TMC|TERMINE MINIMO|DA USARE|DA CONSUMARE|EXP|BBE|BEST BEFORE)/i;
+  const PRODUCTION_KEY = /(PRODUZIONE|PRODOTTO\s+IL|FABBRICAZIONE|CONFEZIONATO\s+IL|MFG|MANUFACTURED)/i;
+
+  // Una data già passata non può essere la scadenza di un prodotto appena
+  // acquistato/scansionato: sulle confezioni è la data di produzione
+  // (spesso stampata accanto a quella di scadenza vera e propria).
+  function pickDates(lines, options) {
     const opts = options || {};
     const ref = opts.now ? new Date(opts.now) : new Date();
     const curYear = ref.getFullYear();
+    const todayStr = ref.getFullYear() + '-' + String(ref.getMonth() + 1).padStart(2, '0') + '-' + String(ref.getDate()).padStart(2, '0');
     const isExpiryShot = opts.role === 'expiry' || opts.role === 'label';
     const candidates = [];
-    const KEY = /(SCAD|ENTRO|CONSUMARSI|PREFERIBIL|TMC|TERMINE MINIMO|DA USARE|DA CONSUMARE|EXP|BBE|BEST BEFORE)/i;
+    const KEY = EXPIRY_KEY;
 
     for (let i = 0; i < lines.length; i++) {
       const rawLine = lines[i];
@@ -206,12 +213,19 @@
       const before = (lines[i - 1] || '') + ' ' + rawLine;
       const after = (lines[i + 1] || '');
       const boost = KEY.test(rawLine) ? 3.1 : KEY.test(before) ? 2.9 : KEY.test(after) ? 1.5 : (isExpiryShot ? 0.5 : 0);
+      // L'etichetta sulla stessa riga vince su quella della riga sopra:
+      // "PRODOTTO IL <data>" seguito da "DA CONSUMARSI ENTRO <data>" deve
+      // classificare la seconda data come scadenza, non come produzione.
+      const kind = PRODUCTION_KEY.test(rawLine) ? 'production'
+        : KEY.test(rawLine) ? 'expiry'
+        : PRODUCTION_KEY.test(before) ? 'production'
+        : KEY.test(before) ? 'expiry' : '';
       let match;
 
       // 1) ISO: 2027-04-18 / 2027.04.18 / 2027/04/18
       if ((match = /(?<!\d)(20\d{2})\s*[/.\-]\s*(\d{1,2})\s*[/.\-]\s*(\d{1,2})(?!\d)/.exec(line))) {
         const value = iso(Number(match[1]), Number(match[2]), Number(match[3]));
-        if (value) { candidates.push({ value, weight: (boost ? boost : 1.5) }); continue; }
+        if (value) { candidates.push({ value, kind, weight: (boost ? boost : 1.5) }); continue; }
       }
 
       // 2) GG/MM/AAAA o GG/MM/AA (anche separati da punti, trattini o spazi sui timbri inkjet: "18 04 27")
@@ -220,7 +234,7 @@
         const day = Number(match[1]), month = Number(match[2]), year = expandYear(match[3]);
         const value = iso(year, month, day) || iso(year, day, month);
         if (value && year >= curYear - 2) {
-          candidates.push({ value, weight: boost ? boost + 0.2 : 1.7 });
+          candidates.push({ value, kind, weight: boost ? boost + 0.2 : 1.7 });
           continue;
         }
       }
@@ -235,10 +249,10 @@
             const year = expandYear(match[3]);
             const day = dayRaw || lastDayOf(year, month);
             const value = iso(year, month, day);
-            if (value) { candidates.push({ value, weight: boost ? boost + 0.1 : 1.3 }); continue; }
+            if (value) { candidates.push({ value, kind, weight: boost ? boost + 0.1 : 1.3 }); continue; }
           } else if (dayRaw >= 1 && dayRaw <= 31 && (boost > 0 || isExpiryShot)) {
             const value = inferYearForDayMonth(dayRaw, month, ref);
-            if (value) { candidates.push({ value, weight: boost ? boost - 0.1 : 1.1 }); continue; }
+            if (value) { candidates.push({ value, kind, weight: boost ? boost - 0.1 : 1.1 }); continue; }
           }
         }
       }
@@ -247,7 +261,7 @@
       if ((match = /(?<!\d)(\d{1,2})\s*[/.\-\s]\s*(20\d{2})(?!\d)/.exec(line))) {
         const month = Number(match[1]), year = Number(match[2]);
         const value = iso(year, month, lastDayOf(year, month));
-        if (value) { candidates.push({ value, weight: boost ? boost + 0.1 : 1.6 }); continue; }
+        if (value) { candidates.push({ value, kind, weight: boost ? boost + 0.1 : 1.6 }); continue; }
       }
 
       // 5) Due numeri: A/B o A.B -> distingue intelligentemente MM/AA ("03.27") da GG/MM dei freschi ("18/11", "10/11")
@@ -259,31 +273,48 @@
           // Es. "03.27" o "12/26" -> mese/anno a fine mese
           const year = 2000 + b;
           const value = iso(year, a, lastDayOf(year, a));
-          if (value) candidates.push({ value, weight: boost ? boost - 0.1 : 1.1 });
+          if (value) candidates.push({ value, kind, weight: boost ? boost - 0.1 : 1.1 });
         } else if (a >= 1 && a <= 31 && b >= 1 && b <= 12 && (a > 12 || 2000 + b < curYear - 2)) {
           // Es. "18/11" oppure "10/11" nel 2026 (non può essere novembre 2011 -> è 10 novembre!)
           if (!/\b(24\s*\/\s*24|100)\b/.test(line)) {
             const value = inferYearForDayMonth(a, b, ref);
-            if (value) candidates.push({ value, weight: boost ? boost - 0.15 : (isExpiryShot ? 1.15 : 0.75) });
+            if (value) candidates.push({ value, kind, weight: boost ? boost - 0.15 : (isExpiryShot ? 1.15 : 0.75) });
           }
         } else if (a >= 1 && a <= 12 && b > 12) {
           const year = expandYear(match[2]);
           const value = iso(year, a, lastDayOf(year, a));
-          if (value) candidates.push({ value, weight: boost ? boost - 0.2 : 0.9 });
+          if (value) candidates.push({ value, kind, weight: boost ? boost - 0.2 : 0.9 });
         }
       }
     }
 
-    if (!candidates.length) return null;
+    if (!candidates.length) return { expiry: null, production: null };
     const limit = curYear + 12;
     const usable = candidates.filter(c => {
       const y = Number(c.value.slice(0, 4));
       return y >= curYear - 2 && y <= limit;
     });
     const pool = usable.length ? usable : candidates.filter(c => Number(c.value.slice(0, 4)) <= limit);
-    if (!pool.length) return null;
-    pool.sort((a, b) => b.weight - a.weight || a.value.localeCompare(b.value));
-    return { value: pool[0].value, confidence: Math.min(0.97, 0.32 + pool[0].weight * 0.19) };
+    if (!pool.length) return { expiry: null, production: null };
+    const bestOf = list => {
+      if (!list.length) return null;
+      const sorted = list.slice().sort((a, b) => b.weight - a.weight || a.value.localeCompare(b.value));
+      return { value: sorted[0].value, confidence: Math.min(0.97, 0.32 + sorted[0].weight * 0.19) };
+    };
+    // Regola chiave: una data antecedente a oggi è di produzione, non di
+    // scadenza — anche se la parola accanto dice "scadenza" (timbri con più
+    // date, OCR che confonde le righe). La scadenza è solo oggi o futura.
+    const expiry = bestOf(pool.filter(c => c.kind !== 'production' && c.value >= todayStr));
+    const production = bestOf(pool.filter(c => c.kind === 'production' || c.value < todayStr));
+    return { expiry, production };
+  }
+
+  function pickExpiry(lines, options) {
+    return pickDates(lines, options).expiry;
+  }
+
+  function pickProduction(lines, options) {
+    return pickDates(lines, options).production;
   }
 
   function pickQuantity(text) {
@@ -381,7 +412,9 @@
     const role = opts.role || 'pack';
     const lines = linesOf(text);
     const joined = lines.join('\n');
-    const expiry = pickExpiry(lines, { role, now: opts.now });
+    const dates = pickDates(lines, { role, now: opts.now });
+    const expiry = dates.expiry;
+    const production = dates.production;
     const quantity = pickQuantity(joined.replace(/\n/g, ' '));
     const barcode = pickBarcode(joined, checksum);
     const name = pickName(lines);
@@ -394,6 +427,8 @@
       brand,
       expiry: expiry ? expiry.value : '',
       expiryConfidence: expiry ? expiry.confidence : 0,
+      production: production ? production.value : '',
+      productionConfidence: production ? production.confidence : 0,
       qty: quantity ? quantity.qty : null,
       unit: quantity ? quantity.unit : '',
       qtyConfidence: quantity ? quantity.confidence : 0,
@@ -446,6 +481,10 @@
     const p = pack || null, l = label || null;
     const barcode = (p && p.barcode) || (l && l.barcode) || '';
     const fromLabel = l && l.expiry && (l.expiryConfidence || 0) >= ((p && p.expiryConfidence) || 0);
+    const productionFromLabel = l && l.production && (l.productionConfidence || 0) >= ((p && p.productionConfidence) || 0);
+    const mergedExpiry = fromLabel ? l.expiry : (p && p.expiry) || (l && l.expiry) || '';
+    let mergedProduction = productionFromLabel ? l.production : (p && p.production) || (l && l.production) || '';
+    if (mergedProduction && mergedProduction === mergedExpiry) mergedProduction = '';
     const withQty = [p, l].filter(x => x && x.qty).sort((a, b) => (b.qtyConfidence || 0) - (a.qtyConfidence || 0))[0];
     const name = (p && p.name) || (l && l.name) || '';
     const brand = (p && p.brand) || (l && l.brand) || '';
@@ -460,8 +499,10 @@
       name,
       brand,
       barcode,
-      expiry: fromLabel ? l.expiry : (p && p.expiry) || (l && l.expiry) || '',
+      expiry: mergedExpiry,
       expirySource: fromLabel ? 'label' : (p && p.expiry ? 'pack' : ''),
+      production: mergedProduction,
+      productionSource: productionFromLabel ? 'label' : (p && p.production ? 'pack' : ''),
       qty: withQty ? withQty.qty : null,
       unit: withQty ? withQty.unit : '',
       category,
@@ -531,6 +572,7 @@
       category,
       location: base.location || inferredLoc || 'Dispensa',
       expiry: (signal && signal.expiry) || '',
+      production: (signal && signal.production) || '',
       barcode: (signal && signal.barcode) || '',
       notes: brand ? brand : '',
       scan: { keywords: learnFrom(signal) }
@@ -554,7 +596,7 @@
 
   const api = {
     UNITS, parse, merge, rank, draft, learnFrom, similarity, keywordsOf, categoryOf, locationOf, searchQueryOf,
-    pickExpiry, pickQuantity, pickName, pickBrand, pickBarcode, smartTitle, brandCase, linesOf,
+    pickExpiry, pickProduction, pickDates, pickQuantity, pickName, pickBrand, pickBarcode, smartTitle, brandCase, linesOf,
     NAME_MATCH, MIN_SCORE
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

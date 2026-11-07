@@ -42,6 +42,7 @@
       category: 'Altro',
       location: 'Dispensa',
       expiry: '',
+      production: '',
       qty: 1,
       unit: 'pz',
       min: 0,
@@ -274,9 +275,12 @@
     ]);
 
     if (onlyUpdatingDate) {
+      if (expiryParsed && expiryParsed.production) formState.production = expiryParsed.production;
       if (expiryParsed && expiryParsed.expiry) {
         formState.expiry = expiryParsed.expiry;
         ui().toast('Data di scadenza letta dalla foto.');
+      } else if (expiryParsed && expiryParsed.production) {
+        ui().toast('La data letta è già passata: è la data di produzione, non la scadenza.');
       } else {
         ui().toast('Data non nitida: puoi selezionarla qui sotto guardando l’anteprima.');
       }
@@ -370,6 +374,7 @@
       category: chosenCategory,
       location: chosenLocation,
       expiry: signal.expiry || '',
+      production: signal.production || '',
       qty: 1,
       unit: 'pz',
       min: 0,
@@ -477,6 +482,7 @@
     const fd = new FormData(form);
     if (fd.has('name')) formState.name = String(fd.get('name')).trim();
     if (fd.has('expiry')) formState.expiry = String(fd.get('expiry')).trim();
+    if (fd.has('production')) formState.production = String(fd.get('production')).trim();
     if (fd.has('qty')) {
       const q = Number(fd.get('qty'));
       if (Number.isFinite(q) && q >= 0) formState.qty = q;
@@ -561,6 +567,7 @@
               <span>Foto scadenza acquisita · verifica che la data coincida</span>
             </div>` : ''}
             <input id="s2-expiry" type="date" name="expiry" value="${esc(formState.expiry)}" min="2000-01-01" max="2199-12-31">
+            ${formState.production && !formState.expiry ? `<p style="margin:8px 0 0;font-size:12px;color:var(--muted)">La data letta dalla foto (${esc(formState.production)}) è già passata: l’ho salvata come <b>data di produzione</b>, non come scadenza. Se la confezione riporta anche la scadenza, inseriscila qui sopra.</p>` : ''}
             <div class="quick-dates">
               <button class="quick-date-chip" type="button" data-action="s2-date-offset" data-days="3">+3 giorni</button>
               <button class="quick-date-chip" type="button" data-action="s2-date-offset" data-days="7">+1 sett</button>
@@ -617,6 +624,10 @@
               <div class="field-group">
                 <label class="field-label" for="s2-min">Scorta minima</label>
                 <input id="s2-min" type="number" name="min" min="0" max="999999" step="0.001" inputmode="decimal" value="${formState.min}">
+              </div>
+              <div class="field-group">
+                <label class="field-label" for="s2-production">Data di produzione</label>
+                <input id="s2-production" type="date" name="production" value="${esc(formState.production)}" min="2000-01-01" max="2199-12-31">
               </div>
               <div class="field-group">
                 <label class="field-label" for="s2-barcode">Codice a barre</label>
@@ -724,6 +735,7 @@
       category: product.category,
       location: product.location,
       expiry: product.expiry || '',
+      production: product.production || '',
       qty: product.qty,
       unit: product.unit,
       min: product.min || 0,

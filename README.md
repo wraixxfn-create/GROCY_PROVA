@@ -23,7 +23,7 @@ Checksum SHA-256 in [`downloads/SHA256SUMS.txt`](downloads/SHA256SUMS.txt).
   - Tre sole sezioni chiare: **Dispensa**, **Spesa**, **Impostazioni**.
 - **Inserimento guidato con 2 foto**:
   1. **Foto 1 — Fronte della confezione**: salva la **miniatura a colori** del prodotto e legge nome, marca e categoria (avviando l’analisi in background mentre giri la confezione).
-  2. **Foto 2 — Data di scadenza dietro**: legge la data di scadenza (formati italiani `GG/MM/AAAA`, `GG.MM.AA`, `GG MM AA`, `MM/AAAA`, date freschi `GG/MM`, mesi testuali `15 NOV 2026`, con secondo passaggio automatico ad alto contrasto sul centro della foto per i timbri piccoli).
+  2. **Foto 2 — Data di scadenza dietro**: legge la data di scadenza — se la data letta è già passata, la interpreta come **data di produzione** e la salva in un campo separato, senza segnare il prodotto come scaduto (formati italiani `GG/MM/AAAA`, `GG.MM.AA`, `GG MM AA`, `MM/AAAA`, date freschi `GG/MM`, mesi testuali `15 NOV 2026`, con secondo passaggio automatico ad alto contrasto sul centro della foto per i timbri piccoli).
   3. **Controlla e salva**: scheda essenziale già pronta con miniatura del prodotto, anteprima della foto scadenza, categoria a icone, luogo suggerito in automatico (*Frigorifero* per latticini/freschi, *Congelatore* per surgelati, *Dispensa* per secchi/conserve) e pulsante **Salva in dispensa**.
 - **Tutto sul telefono + Open Food Facts via internet (zero server, zero chiavi API)**:
   - Tutti i dati (prodotti, miniature, scadenze, catalogo imparato e lista della spesa) restano salvati **solo sul telefono**.

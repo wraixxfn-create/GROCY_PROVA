@@ -5,6 +5,13 @@ BUILD="$PWD/build/android"
 SRC="$PWD/android/app/src/main"
 TOOLS="$PWD/.tools"
 APK_NAME="grocy-locale-v2.1.0.apk"
+# Guardia: il pulsante "Scarica APK" dell'app web (assets/app.js) deve puntare
+# allo stesso file che stiamo per generare, altrimenti nell'APK finisce un link rotto.
+if ! grep -qF "APK_PATH = '/downloads/$APK_NAME'" "$SRC/assets/app.js"; then
+  echo "ERRORE: assets/app.js non punta a /downloads/$APK_NAME (APK_PATH)." >&2
+  echo "Aggiorna APK_PATH oppure APK_NAME prima di ricompilare." >&2
+  exit 1
+fi
 # Engine OCR locale (Tesseract in WebAssembly) dentro gli asset: si genera una
 # volta sola con npm run vendor:ocr se non è già presente.
 bash scripts/vendor-ocr.sh
@@ -37,7 +44,6 @@ import sys
 p=Path(sys.argv[1])
 with ZipFile(p/'unsigned.apk','a',compression=ZIP_DEFLATED) as z: z.write(p/'classes.dex','classes.dex')
 PY
-rm -f downloads/grocy-locale-v1.*.apk
 if [[ -n "${BT:-}" ]]; then
   KEY="${GROCY_KEYSTORE:-$TOOLS/grocy-local.jks}"
   if [[ ! -f "$KEY" ]]; then mkdir -p "$TOOLS"; keytool -genkeypair -keystore "$KEY" -storepass android -keypass android -alias grocy -dname 'CN=Grocy Locale Local Build' -keyalg RSA -keysize 2048 -validity 10000; fi
@@ -50,5 +56,7 @@ else
   cp "$BUILD/signed/unsigned-aligned-debugSigned.apk" "downloads/$APK_NAME"
   "$JAVA" -jar "$TOOLS/uber-apk-signer.jar" --apks "downloads/$APK_NAME" --onlyVerify
 fi
+# Rimuovi eventuali APK di versioni precedenti dalla distribuzione, tenendo solo quello appena verificato.
+find downloads -maxdepth 1 -name 'grocy-locale-v*.apk' ! -name "$APK_NAME" -delete
 (cd downloads && sha256sum "$APK_NAME" > SHA256SUMS.txt)
 echo "APK pronto: downloads/$APK_NAME"

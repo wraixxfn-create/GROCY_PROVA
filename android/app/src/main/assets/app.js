@@ -53,7 +53,7 @@
   const native = !!(window.Android && typeof Android.loadState === 'function');
   const MAX_ARCHIVE = 12000000;
   const STORAGE = 'grocy-locale-v1';
-  const APK_PATH = '/downloads/grocy-locale-v2.0.0.apk';
+  const APK_PATH = '/downloads/grocy-locale-v2.1.0.apk';
 
   let state = G.blank();
   let page = 'pantry';

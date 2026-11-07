@@ -1,11 +1,6 @@
 /*
- * Lettura del testo stampato su confezioni ed etichette, interamente sul
- * telefono. Tesseract è compilato in WebAssembly e vive negli asset dell'app:
- * nessun server, nessun worker, nessun caricamento di rete.
- *
- * Il motore riceve una foto già in scala di grigi (byte, una voce per pixel),
- * la converte in PNM e restituisce il testo riconosciuto. L'immagine resta in
- * memoria: non viene salvata, non finisce nei backup e non esce dal dispositivo.
+ * Lettura del testo stampato su confezioni e date di scadenza direttamente sul
+ * telefono tramite Tesseract compilato in WebAssembly negli asset locali.
  */
 (function (root) {
   'use strict';
@@ -14,12 +9,12 @@
   const DATA_SRC = 'vendor/ita.traineddata.b64.js';
   const LANG = 'ita';
   const DATA_DIR = '/tessdata';
-  const IMAGE_PATH = '/input'; // percorso fisso atteso da Tesseract (tessdata e input)
-  const MAX_SIDE = 1600; // lato massimo passato al motore
+  const IMAGE_PATH = '/input';
+  const MAX_SIDE = 1600;
 
-  let ready = null;           // promise di inizializzazione in corso
-  let tess = null;            // modulo WebAssembly
-  let engine = null;          // TessBaseAPI
+  let ready = null;
+  let tess = null;
+  let engine = null;
   let failure = '';
 
   function inject(path) {
@@ -48,8 +43,6 @@
     return out;
   }
 
-  // Riduzione a passi interi con media a riquadro: più fedele di un nearest
-  // neighbour quando la foto è molto più grande di quella utile al motore.
   function fit(gray, width, height, limit) {
     const longest = Math.max(width, height);
     if (longest <= limit) return { gray, width, height };
@@ -66,7 +59,8 @@
           if (y0 + dy >= height) break;
           for (let dx = 0; dx < step; dx++) {
             if (x0 + dx >= width) break;
-            sum += gray[row + x0 + dx]; count++;
+            sum += gray[row + x0 + dx];
+            count++;
           }
         }
         out[y * w + x] = count ? (sum / count) | 0 : 0;
@@ -75,8 +69,41 @@
     return { gray: out, width: w, height: h };
   }
 
-  // PNM in scala di grigi (P5): formato semplice che Leptonica apre senza
-  // decodificatori aggiuntivi.
+  // Normalizza il contrasto sulle foto con poca escursione tonale (ombra o plastica opaca).
+  function enhance(gray) {
+    if (!gray || gray.length < 64) return gray;
+    const hist = new Uint32Array(256);
+    for (let i = 0; i < gray.length; i++) hist[gray[i]]++;
+    const pLow = Math.floor(gray.length * 0.02);
+    const pHigh = Math.floor(gray.length * 0.98);
+    let acc = 0, low = 0, high = 255;
+    for (let i = 0; i < 256; i++) { acc += hist[i]; if (acc >= pLow) { low = i; break; } }
+    acc = 0;
+    for (let i = 0; i < 256; i++) { acc += hist[i]; if (acc >= pHigh) { high = i; break; } }
+    if (high - low >= 185 || high - low < 12) return gray;
+    const out = new Uint8Array(gray.length);
+    const scale = 255 / (high - low);
+    for (let i = 0; i < gray.length; i++) {
+      const v = (gray[i] - low) * scale;
+      out[i] = v <= 0 ? 0 : v >= 255 ? 255 : v | 0;
+    }
+    return out;
+  }
+
+  function cropCenter(gray, width, height, ratio) {
+    const r = Math.max(0.3, Math.min(0.95, ratio || 0.7));
+    const cw = Math.max(16, Math.round(width * r));
+    const ch = Math.max(16, Math.round(height * r));
+    const x0 = Math.floor((width - cw) / 2);
+    const y0 = Math.floor((height - ch) / 2);
+    const out = new Uint8Array(cw * ch);
+    for (let y = 0; y < ch; y++) {
+      const srcRow = (y0 + y) * width + x0;
+      out.set(gray.subarray(srcRow, srcRow + cw), y * cw);
+    }
+    return { gray: enhance(out), width: cw, height: ch };
+  }
+
   function pgm(gray, width, height) {
     const header = 'P5\n' + width + ' ' + height + '\n255\n';
     const bytes = new Uint8Array(header.length + gray.length);
@@ -96,7 +123,7 @@
       try { tess.FS.mkdir(DATA_DIR); } catch (e) { /* esiste già */ }
       tess.FS.writeFile(DATA_DIR + '/' + LANG + '.traineddata', base64Bytes(root.GROCY_TESSDATA_ITA_B64));
       engine = new tess.TessBaseAPI();
-      const status = engine.Init(DATA_DIR, LANG, 1 /* solo LSTM */, null);
+      const status = engine.Init(DATA_DIR, LANG, 1, null);
       if (status !== 0) throw new Error('Motore OCR non inizializzato (codice ' + status + ').');
       return engine;
     })().catch(error => {
@@ -107,22 +134,19 @@
     return ready;
   }
 
-  /*
-   * gray/width/height: foto in scala di grigi.
-   * options.psm: modalità di segmentazione (3 automatica, 6 blocco singolo).
-   * Restituisce {text, ms, width, height}.
-   */
   async function read(gray, width, height, options) {
     if (!gray || !(width > 0) || !(height > 0) || gray.length < width * height) {
       throw new Error('Foto non valida per la lettura del testo.');
     }
     await init();
-    const image = fit(gray, width, height, MAX_SIDE);
-    const psm = options && options.psm ? String(options.psm) : '3';
+    const opts = options || {};
+    const fitted = fit(gray, width, height, MAX_SIDE);
+    const imgGray = opts.enhance ? enhance(fitted.gray) : fitted.gray;
+    const psm = opts.psm ? String(opts.psm) : '3';
     const start = Date.now();
-    tess.FS.writeFile(IMAGE_PATH, pgm(image.gray, image.width, image.height));
+    tess.FS.writeFile(IMAGE_PATH, pgm(imgGray, fitted.width, fitted.height));
     engine.SetVariable('tessedit_pageseg_mode', psm);
-    engine.SetVariable('tessedit_char_whitelist', '');
+    engine.SetVariable('tessedit_char_whitelist', opts.whitelist ? String(opts.whitelist) : '');
     if (engine.SetImageFile(1, 0) !== 0) throw new Error('Foto non leggibile dal motore OCR.');
     let text = '';
     try {
@@ -130,16 +154,18 @@
     } finally {
       engine.Clear();
     }
-    return { text: text.replace(/\r/g, ''), ms: Date.now() - start, width: image.width, height: image.height };
+    return { text: text.replace(/\r/g, ''), ms: Date.now() - start, width: fitted.width, height: fitted.height };
   }
 
   const exported = {
     read,
     init,
+    enhance,
+    cropCenter,
     get lang() { return LANG; },
     isReady: () => !!engine,
     error: () => failure,
-    _fit: fit // usato solo dai test
+    _fit: fit
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = exported;
   else root.GrocyOcr = exported;

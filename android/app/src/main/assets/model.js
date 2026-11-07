@@ -1,0 +1,51 @@
+(function (root) {
+  'use strict';
+  const CATEGORIES = ['Verdura e frutta', 'Latticini e uova', 'Pasta e cereali', 'Carne e pesce', 'Conserve', 'Bevande', 'Surgelati', 'Altro'];
+  const LOCATIONS = ['Dispensa', 'Frigorifero', 'Congelatore'];
+  const UNITS = ['pz', 'kg', 'g', 'l', 'ml', 'conf'];
+  const id = () => 'g' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+  const today = () => localDate(new Date());
+  function localDate(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+  function validDate(s) { if(!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false; const d=new Date(s+'T12:00:00'); return !isNaN(d) && localDate(d)===s; }
+  function days(date, now=today()) { return date ? Math.round((Date.parse(date+'T12:00:00Z')-Date.parse(now+'T12:00:00Z'))/86400000) : Infinity; }
+  function blank() { return { format:'grocy-locale', version:1, products:[], shopping:[], history:[], settings:{ warningDays:3 }, updatedAt:new Date().toISOString() }; }
+  function text(s, max=120) { if(typeof s!=='string' || s.length>max) throw new Error('Testo non valido nel backup.'); return s; }
+  function quantity(n, positive=false) { if(typeof n!=='number'||!Number.isFinite(n)||n<0||n>999999||(positive&&n===0)) throw new Error('Quantità non valida.'); return n; }
+  function validate(s) {
+    if(!s || s.format!=='grocy-locale' || s.version!==1 || !Array.isArray(s.products) || !Array.isArray(s.shopping) || !Array.isArray(s.history) || s.products.length>5000 || s.shopping.length>5000 || s.history.length>200) throw new Error('Questo non è un backup Grocy Locale v1 valido.');
+    const result=blank(), ids=new Set();
+    function checkId(v) { text(v,80); if(!/^[a-zA-Z0-9_-]{1,80}$/.test(v)||ids.has(v)) throw new Error('Identificativi duplicati o non validi.'); ids.add(v); return v; }
+    result.products=s.products.map(p=>{
+      if(!p || !text(p.name).trim() || !CATEGORIES.includes(p.category) || !LOCATIONS.includes(p.location) || !UNITS.includes(p.unit) || (p.expiry && !validDate(p.expiry))) throw new Error('Prodotto non valido nel backup.');
+      return {id:checkId(p.id),name:p.name.trim(),qty:quantity(p.qty),min:quantity(p.min),unit:p.unit,category:p.category,location:p.location,expiry:text(p.expiry,10),barcode:text(p.barcode,80),notes:text(p.notes,1000)};
+    });
+    result.shopping=s.shopping.map(p=>{ if(!p||!text(p.name).trim()||!UNITS.includes(p.unit)||typeof p.done!=='boolean') throw new Error('Lista della spesa non valida.'); return {id:checkId(p.id),name:p.name.trim(),qty:quantity(p.qty,true),unit:p.unit,done:p.done}; });
+    result.history=s.history.map(h=>{ if(!h||!['add','consume','edit','delete','stock'].includes(h.type)||!Number.isFinite(Date.parse(h.at))) throw new Error('Storico non valido.'); return {name:text(h.name),type:h.type,at:h.at,detail:text(h.detail,160)}; });
+    if(!s.settings || ![1,3,7,14].includes(s.settings.warningDays)) throw new Error('Impostazioni non valide.');
+    result.settings.warningDays=s.settings.warningDays;
+    return result;
+  }
+  function stats(s) {
+    const stocked=s.products.filter(p=>p.qty>0);
+    return {total:s.products.length,expired:stocked.filter(p=>days(p.expiry)<0).length,expiring:stocked.filter(p=>days(p.expiry)>=0&&days(p.expiry)<=s.settings.warningDays).length,low:s.products.filter(p=>p.qty<p.min).length,shopping:s.shopping.filter(p=>!p.done).length};
+  }
+  function changeQuantity(s, productId, delta, type) {
+    const p=s.products.find(p=>p.id===productId);
+    if(!p || !Number.isFinite(delta) || p.qty+delta < -0.000001 || p.qty+delta>999999) throw new Error('Quantità non disponibile.');
+    p.qty=Math.max(0,Math.round((p.qty+delta)*1000)/1000);
+    log(s,type|| (delta<0?'consume':'stock'),p.name,`${delta>0?'+':''}${delta} ${p.unit}`); return p;
+  }
+  function log(s,type,name,detail) { s.history.unshift({type,name,detail,at:new Date().toISOString()});s.history=s.history.slice(0,200); }
+  function addShortages(s) {
+    let added=0;
+    s.products.filter(p=>p.qty<p.min).forEach(p=>{ if(!s.shopping.some(i=>!i.done&&i.name.toLocaleLowerCase('it')===p.name.toLocaleLowerCase('it')&&i.unit===p.unit)) { s.shopping.push({id:id(),name:p.name,qty:Math.round((p.min-p.qty)*1000)/1000,unit:p.unit,done:false}); added++; } }); return added;
+  }
+  function demo() {
+    const s=blank(); const offset=n=>{const d=new Date();d.setDate(d.getDate()+n);return localDate(d);};
+    const rows=[['Yogurt bianco',2,4,'pz','Latticini e uova','Frigorifero',2],['Pomodorini',0.5,0.3,'kg','Verdura e frutta','Frigorifero',1],['Latte intero',1,2,'l','Latticini e uova','Frigorifero',3],['Pasta di semola',3,2,'conf','Pasta e cereali','Dispensa',180],['Uova fresche',6,4,'pz','Latticini e uova','Frigorifero',9],['Passata di pomodoro',2,2,'pz','Conserve','Dispensa',150],['Piselli surgelati',1,1,'conf','Surgelati','Congelatore',80],['Riso basmati',0,1,'kg','Pasta e cereali','Dispensa',250]];
+    s.products=rows.map(([name,qty,min,unit,category,location,expiry])=>({id:id(),name,qty,min,unit,category,location,expiry:offset(expiry),barcode:'',notes:''}));
+    s.shopping=[{id:id(),name:'Pane integrale',qty:1,unit:'pz',done:false}]; log(s,'add','La tua dispensa di esempio','Dati dimostrativi, modificabili'); return s;
+  }
+  const api={CATEGORIES,LOCATIONS,UNITS,id,today,localDate,validDate,days,blank,validate,stats,changeQuantity,log,addShortages,demo};
+  if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.Grocy=api;
+})(typeof window!=='undefined'?window:globalThis);

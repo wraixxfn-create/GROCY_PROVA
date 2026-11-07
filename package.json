@@ -1,0 +1,13 @@
+{
+  "name": "grocy-locale",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Dispensa Android autonoma e offline, ispirata a Grocy",
+  "scripts": {
+    "start": "node scripts/serve.mjs",
+    "test": "node --test tests/model.test.cjs",
+    "test:browser": "node tests/browser.mjs",
+    "build:apk": "bash scripts/build-apk.sh"
+  },
+  "devDependencies": { "@sparticuz/chromium": "^143.0.4", "playwright-core": "^1.56.1" }
+}

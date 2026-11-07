@@ -75,7 +75,7 @@
       return v;
     }
     result.products = s.products.map(p => {
-      if (!p || !text(p.name).trim() || !CATEGORIES.includes(p.category) || !LOCATIONS.includes(p.location) || !UNITS.includes(p.unit) || (p.expiry && !validDate(p.expiry))) {
+      if (!p || !text(p.name).trim() || !CATEGORIES.includes(p.category) || !LOCATIONS.includes(p.location) || !UNITS.includes(p.unit) || (p.expiry && !validDate(p.expiry)) || (p.production && !validDate(p.production))) {
         throw new Error('Prodotto non valido nel backup.');
       }
       const product = {
@@ -87,6 +87,7 @@
         category: p.category,
         location: p.location,
         expiry: text(p.expiry, 10),
+        production: typeof p.production === 'string' ? text(p.production, 10) : '',
         barcode: text(p.barcode, 80),
         notes: text(p.notes, 1000)
       };
@@ -191,7 +192,7 @@
       ['Riso basmati', 0, 1, 'kg', 'Pasta e cereali', 'Dispensa', 250]
     ];
     s.products = rows.map(([name, qty, min, unit, category, location, expiry]) => ({
-      id: id(), name, qty, min, unit, category, location, expiry: offset(expiry), barcode: '', notes: ''
+      id: id(), name, qty, min, unit, category, location, expiry: offset(expiry), production: '', barcode: '', notes: ''
     }));
     s.shopping = [{ id: id(), name: 'Pane integrale', qty: 1, unit: 'pz', done: false }];
     log(s, 'add', 'La tua dispensa di esempio', 'Dati dimostrativi, modificabili');

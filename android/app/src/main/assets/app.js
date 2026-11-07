@@ -300,6 +300,7 @@
               </div>
               <div class="product-badges">
                 ${p.qty === 0 ? `<span class="badge neutral">Esaurito</span>` : expiryBadge(p)}
+                ${p.production ? `<span class="badge neutral">Prodotto il ${esc(fmtDate(p.production))}</span>` : ''}
               </div>
             </div>
             <div class="card-right">
@@ -522,6 +523,7 @@
       category: G.CATEGORIES.includes(product.category) ? product.category : 'Altro',
       location: G.LOCATIONS.includes(product.location) ? product.location : 'Dispensa',
       expiry: String(product.expiry || '').trim(),
+      production: String(product.production || '').trim(),
       barcode: product.barcode ? B.normalize(product.barcode) : '',
       notes: String(product.notes || '').trim()
     };
@@ -529,6 +531,13 @@
     if (product.scan) clean.scan = product.scan;
     if (!clean.name) throw new Error('Inserisci il nome del prodotto.');
     if (clean.expiry && !G.validDate(clean.expiry)) throw new Error('Data di scadenza non valida.');
+    if (clean.production && !G.validDate(clean.production)) throw new Error('Data di produzione non valida.');
+    // Correzione: una "scadenza" già passata non è una scadenza ma la data
+    // di produzione — la spostiamo lì invece di segnare il prodotto scaduto.
+    if (clean.expiry && G.days(clean.expiry) < 0) {
+      if (!clean.production) clean.production = clean.expiry;
+      clean.expiry = '';
+    }
 
     const test = G.blank();
     test.products = [clean];

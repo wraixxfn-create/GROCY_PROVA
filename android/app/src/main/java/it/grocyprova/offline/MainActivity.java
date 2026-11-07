@@ -14,27 +14,35 @@ import android.os.Bundle;
 import android.provider.MediaStore;
 import android.util.Base64;
 import android.webkit.JavascriptInterface;
+import android.webkit.ValueCallback;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.webkit.ValueCallback;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
+import javax.net.ssl.HttpsURLConnection;
 import org.json.JSONObject;
 
-/** Local-only shell: no Internet permission, no remote WebView content. */
+/**
+ * Shell locale sul telefono: archiviazione privata SharedPreferences,
+ * scatto delle 2 foto con miniatura a colori + scala di grigi per OCR,
+ * e interrogazione HTTPS opzionale diretta a Open Food Facts senza alcun server intermedio.
+ */
 public final class MainActivity extends Activity {
     private WebView web;
     private SharedPreferences prefs;
     private static final int EXPORT = 100, IMPORT = 101, SCAN = 102, PHOTO_CAPTURE = 103, PHOTO_PICK = 104;
-    private static final int MAX_BYTES = 8000000;
-    private static final int SCAN_MAX_SIDE = 1600;
+    private static final int MAX_BYTES = 12000000;
+    private static final int MAX_HTTP_BYTES = 524288;
     private static final int PHOTO_MAX_SIDE = 1600;
+    private static final int PACK_THUMB_SIDE = 184;
+    private static final int EXPIRY_THUMB_SIDE = 300;
     private boolean scanning = false;
     private String photoKind = "pack";
 
@@ -46,11 +54,11 @@ public final class MainActivity extends Activity {
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
-        s.setAllowFileAccess(false); // android_asset is still available.
+        s.setAllowFileAccess(false);
         s.setAllowContentAccess(false);
         s.setAllowFileAccessFromFileURLs(false);
         s.setAllowUniversalAccessFromFileURLs(false);
-        s.setBlockNetworkLoads(true);
+        s.setBlockNetworkLoads(false);
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         s.setJavaScriptCanOpenWindowsAutomatically(false);
         s.setSupportMultipleWindows(false);
@@ -63,23 +71,25 @@ public final class MainActivity extends Activity {
             }
         });
         web.addJavascriptInterface(new LocalBridge(), "Android");
-        web.setBackgroundColor(0xfff7f8f4);
+        web.setBackgroundColor(0xfff5f7f3);
         setContentView(web);
         web.loadUrl("file:///android_asset/index.html");
     }
 
     public final class LocalBridge {
         @JavascriptInterface public String loadState() { return prefs.getString("state", ""); }
+
         @JavascriptInterface public boolean saveState(String json) {
-            if (json == null || json.length() > 2000000) return false;
+            if (json == null || json.length() > MAX_BYTES) return false;
             try {
                 JSONObject parsed = new JSONObject(json);
                 if (!"grocy-locale".equals(parsed.optString("format")) || parsed.optInt("version") != 1) return false;
                 return prefs.edit().putString("state", json).commit();
             } catch (Exception e) { return false; }
         }
+
         @JavascriptInterface public void exportBackup(final String json) {
-            if (json == null || json.length() > 2000000) { result(false, "Backup troppo grande."); return; }
+            if (json == null || json.length() > MAX_BYTES) { result(false, "Backup troppo grande."); return; }
             if (!prefs.edit().putString("pendingExport", json).commit()) { result(false, "Impossibile preparare il backup."); return; }
             runOnUiThread(new Runnable() { public void run() {
                 try {
@@ -92,6 +102,7 @@ public final class MainActivity extends Activity {
                 } catch (Exception e) { prefs.edit().remove("pendingExport").apply(); result(false, "Nessun gestore file disponibile."); }
             }});
         }
+
         @JavascriptInterface public void scanBarcode() {
             if (scanning) return;
             scanning = true;
@@ -106,14 +117,11 @@ public final class MainActivity extends Activity {
                     startActivityForResult(i, SCAN);
                 } catch (Exception e) {
                     scanning = false;
-                    result(false, "Nessuna fotocamera disponibile: inserisci il codice a mano.");
+                    result(false, "Nessuna fotocamera disponibile.");
                 }
             }});
         }
-        /**
-         * Scatto per il riconoscimento con due foto. kind è "pack" o "label":
-         * torna a JavaScript insieme all'immagine già in scala di grigi.
-         */
+
         @JavascriptInterface public void capturePhoto(final String kind) {
             photoKind = kindOf(kind);
             runOnUiThread(new Runnable() { public void run() {
@@ -130,7 +138,7 @@ public final class MainActivity extends Activity {
                 }
             }});
         }
-        /** Foto già scattata, scelta dal selettore di documenti di Android. */
+
         @JavascriptInterface public void pickPhoto(final String kind) {
             photoKind = kindOf(kind);
             runOnUiThread(new Runnable() { public void run() {
@@ -145,6 +153,7 @@ public final class MainActivity extends Activity {
                 }
             }});
         }
+
         @JavascriptInterface public void importBackup() {
             runOnUiThread(new Runnable() { public void run() {
                 try {
@@ -155,22 +164,65 @@ public final class MainActivity extends Activity {
                 } catch (Exception e) { result(false, "Nessun gestore file disponibile."); }
             }});
         }
+
+        /**
+         * Richiesta HTTPS diretta a Open Food Facts (nessuna chiave API, nessun server nostro).
+         * Accetta esclusivamente gli host ufficiali it.openfoodfacts.org e world.openfoodfacts.org.
+         */
+        @JavascriptInterface public void fetchJson(final String reqId, final String urlString) {
+            if (reqId == null || urlString == null) return;
+            new Thread(new Runnable() { public void run() {
+                HttpsURLConnection conn = null;
+                try {
+                    URL url = new URL(urlString);
+                    String host = url.getHost() == null ? "" : url.getHost().toLowerCase(Locale.US);
+                    if (!"https".equalsIgnoreCase(url.getProtocol())
+                            || (!"it.openfoodfacts.org".equals(host) && !"world.openfoodfacts.org".equals(host))) {
+                        throw new Exception("Indirizzo non consentito.");
+                    }
+                    conn = (HttpsURLConnection) url.openConnection();
+                    conn.setInstanceFollowRedirects(true);
+                    conn.setConnectTimeout(3800);
+                    conn.setReadTimeout(4200);
+                    conn.setRequestMethod("GET");
+                    conn.setRequestProperty("Accept", "application/json");
+                    conn.setRequestProperty("User-Agent", "GrocyLocale/2.0 (Android; local-app)");
+                    int status = conn.getResponseCode();
+                    if (status < 200 || status >= 300) throw new Exception("HTTP " + status);
+                    InputStream in = conn.getInputStream();
+                    ByteArrayOutputStream out = new ByteArrayOutputStream();
+                    try {
+                        byte[] buf = new byte[4096];
+                        int n;
+                        while ((n = in.read(buf)) != -1) {
+                            if (out.size() + n > MAX_HTTP_BYTES) throw new Exception("Risposta troppo grande.");
+                            out.write(buf, 0, n);
+                        }
+                    } finally { in.close(); }
+                    emitHttp(reqId, true, out.toString("UTF-8"));
+                } catch (Exception e) {
+                    emitHttp(reqId, false, e.getMessage() == null ? "Errore di rete" : e.getMessage());
+                } finally {
+                    if (conn != null) conn.disconnect();
+                }
+            }}).start();
+        }
     }
 
     private static String kindOf(String kind) {
-        return "label".equals(kind) ? "label" : "pack";
+        return ("label".equals(kind) || "expiry".equals(kind)) ? "label" : "pack";
+    }
+
+    private void emitHttp(final String reqId, final boolean ok, final String body) {
+        emit("window.onNativeHttp && window.onNativeHttp(" + JSONObject.quote(reqId) + "," + ok + "," + JSONObject.quote(body) + ")");
     }
 
     private void result(final boolean ok, final String message) {
-        runOnUiThread(new Runnable() { public void run() {
-            if (web != null) web.evaluateJavascript("window.onNativeResult && window.onNativeResult(" + ok + "," + JSONObject.quote(message) + ")", null);
-        }});
+        emit("window.onNativeResult && window.onNativeResult(" + ok + "," + JSONObject.quote(message) + ")");
     }
 
     private void photoError(final String message) {
-        runOnUiThread(new Runnable() { public void run() {
-            if (web != null) web.evaluateJavascript("window.onNativePhotoError && window.onNativePhotoError(" + JSONObject.quote(message) + ")", null);
-        }});
+        emit("window.onNativePhotoError && window.onNativePhotoError(" + JSONObject.quote(message) + ")");
     }
 
     @Override protected void onActivityResult(int request, int code, Intent data) {
@@ -199,7 +251,6 @@ public final class MainActivity extends Activity {
         }
         final Uri uri = data.getData();
         final int operation = request;
-        // File providers may be slow: never block WebView's main thread.
         new Thread(new Runnable() { public void run() {
             try {
                 if (operation == EXPORT) {
@@ -222,22 +273,17 @@ public final class MainActivity extends Activity {
                         }
                     } finally { in.close(); }
                     final String text = bytes.toString("UTF-8");
-                    runOnUiThread(new Runnable() { public void run() {
-                        if (web != null) web.evaluateJavascript("window.onNativeBackup(" + JSONObject.quote(text) + ")", null);
-                    }});
+                    emit("window.onNativeBackup(" + JSONObject.quote(text) + ")");
                 }
             } catch (Exception e) { result(false, "Operazione non riuscita: " + e.getMessage()); }
         }}).start();
     }
 
-    /** Converte lo scatto in scala di grigi e lo passa al lettore JavaScript. */
     private void readLabel(boolean captured) {
         java.io.File file = CameraOutputProvider.fileFor(this);
         try {
             if (!captured) {
-                runOnUiThread(new Runnable() { public void run() {
-                    if (web != null) web.evaluateJavascript("window.onNativeScan && window.onNativeScan(null)", null);
-                }});
+                emit("window.onNativeScan && window.onNativeScan(null)");
                 return;
             }
             if (!file.exists() || file.length() == 0) throw new Exception("La fotocamera non ha salvato la foto. Riprova.");
@@ -248,9 +294,7 @@ public final class MainActivity extends Activity {
             emit(payload);
         } catch (Exception e) {
             final String message = e.getMessage() == null ? "Foto non leggibile." : e.getMessage();
-            runOnUiThread(new Runnable() { public void run() {
-                if (web != null) web.evaluateJavascript("window.onNativeScanError && window.onNativeScanError(" + JSONObject.quote(message) + ")", null);
-            }});
+            emit("window.onNativeScanError && window.onNativeScanError(" + JSONObject.quote(message) + ")");
         } finally {
             if (file.exists()) file.delete();
         }
@@ -285,14 +329,16 @@ public final class MainActivity extends Activity {
     }
 
     private void emitPhotoCancelled() {
-        runOnUiThread(new Runnable() { public void run() {
-            if (web != null) web.evaluateJavascript("window.onNativePhoto && window.onNativePhoto(null)", null);
-        }});
+        emit("window.onNativePhoto && window.onNativePhoto(null)");
     }
 
     private void emitPhoto(String kind, Bitmap bitmap) {
-        String payload = "window.onNativePhoto && window.onNativePhoto({kind:" + JSONObject.quote(kindOf(kind))
+        String k = kindOf(kind);
+        int thumbSide = "pack".equals(k) ? PACK_THUMB_SIDE : EXPIRY_THUMB_SIDE;
+        String thumb = colorThumbDataUrl(bitmap, thumbSide, 74);
+        String payload = "window.onNativePhoto && window.onNativePhoto({kind:" + JSONObject.quote(k)
                 + ",width:" + bitmap.getWidth() + ",height:" + bitmap.getHeight()
+                + ",thumb:" + JSONObject.quote(thumb)
                 + ",data:\"" + grayBase64(bitmap) + "\"})";
         emit(payload);
     }
@@ -303,11 +349,6 @@ public final class MainActivity extends Activity {
         }});
     }
 
-    /*
-     * Le foto arrivano ruotate: la fotocamera salva i pixel e annota
-     * l'orientamento nei metadati EXIF. Senza questa correzione il testo
-     * verrebbe letto di traverso.
-     */
     private Bitmap decodePhoto(java.io.File file) throws Exception {
         BitmapFactory.Options bounds = new BitmapFactory.Options();
         bounds.inJustDecodeBounds = true;
@@ -320,7 +361,7 @@ public final class MainActivity extends Activity {
         if (bitmap == null) throw new Exception("Foto non leggibile.");
         int orientation = ExifInterface.ORIENTATION_NORMAL;
         try { orientation = new ExifInterface(file.getAbsolutePath()).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL); }
-        catch (Exception ignored) { /* senza EXIF la foto resta come è */ }
+        catch (Exception ignored) { }
         return rotate(bitmap, orientation);
     }
 
@@ -344,7 +385,7 @@ public final class MainActivity extends Activity {
         try {
             exifStream = getContentResolver().openInputStream(uri);
             if (exifStream != null) orientation = new ExifInterface(exifStream).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL);
-        } catch (Exception ignored) { /* alcuni provider non espongono i metadati */ }
+        } catch (Exception ignored) { }
         finally { if (exifStream != null) try { exifStream.close(); } catch (Exception ignored) { } }
         return rotate(bitmap, orientation);
     }
@@ -367,6 +408,28 @@ public final class MainActivity extends Activity {
         return rotated;
     }
 
+    private static String colorThumbDataUrl(Bitmap source, int maxSide, int quality) {
+        Bitmap scaled = null;
+        try {
+            int w = source.getWidth(), h = source.getHeight();
+            int longest = Math.max(w, h);
+            if (longest > maxSide) {
+                int tw = Math.max(1, Math.round((float) w * maxSide / longest));
+                int th = Math.max(1, Math.round((float) h * maxSide / longest));
+                scaled = Bitmap.createScaledBitmap(source, tw, th, true);
+            } else {
+                scaled = source;
+            }
+            ByteArrayOutputStream jpeg = new ByteArrayOutputStream();
+            scaled.compress(Bitmap.CompressFormat.JPEG, quality, jpeg);
+            return "data:image/jpeg;base64," + Base64.encodeToString(jpeg.toByteArray(), Base64.NO_WRAP);
+        } catch (Exception e) {
+            return "";
+        } finally {
+            if (scaled != null && scaled != source) scaled.recycle();
+        }
+    }
+
     private static String grayBase64(Bitmap bitmap) {
         int width = bitmap.getWidth(), height = bitmap.getHeight();
         int[] pixels = new int[width * height];
@@ -384,6 +447,7 @@ public final class MainActivity extends Activity {
             if (!"true".equals(value)) MainActivity.super.onBackPressed();
         }});
     }
+
     @Override protected void onDestroy() {
         scanning = false;
         if (web != null) { web.removeJavascriptInterface("Android"); web.destroy(); web = null; }

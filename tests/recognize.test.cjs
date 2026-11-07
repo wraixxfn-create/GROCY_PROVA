@@ -183,3 +183,21 @@ test('somiglianza: nomi simili passano, nomi diversi no', () => {
   assert.ok(R.similarity('Passata di pomodoro', 'Passata pomodoro') > 0.85);
   assert.ok(R.similarity('Passata di pomodoro', 'Biscotti integrali') < 0.3);
 });
+
+test('scadenze su prodotti freschi (giorno/mese senza anno), timbri con spazi e scambi O/0', () => {
+  const ref = '2026-11-07T12:00:00Z';
+  assert.equal(R.parse('DA CONSUMARSI ENTRO: 18/11', {role: 'expiry', now: ref}).expiry, '2026-11-18');
+  assert.equal(R.parse('SCAD. 10/11', {role: 'expiry', now: ref}).expiry, '2026-11-10');
+  assert.equal(R.parse('SCAD 05/01', {role: 'expiry', now: ref}).expiry, '2027-01-05');
+  assert.equal(R.parse('18 04 27', {role: 'expiry', now: ref}).expiry, '2027-04-18');
+  assert.equal(R.parse('15 NOV 2026', {role: 'expiry', now: ref}).expiry, '2026-11-15');
+  assert.equal(R.parse('SCAD 18/O4/2O27', {role: 'expiry', now: ref}).expiry, '2027-04-18');
+});
+
+test('luogo di conservazione suggerito automaticamente dalla categoria e dal testo', () => {
+  assert.equal(R.locationOf('Surgelati', 'Pisellini primavera'), 'Congelatore');
+  assert.equal(R.locationOf('Latticini e uova', 'Mozzarella fresca'), 'Frigorifero');
+  assert.equal(R.locationOf('Latticini e uova', 'Latte parzialmente scremato UHT lunga conservazione'), 'Dispensa');
+  assert.equal(R.locationOf('Carne e pesce', 'Tonno all\'olio di oliva in scatola'), 'Dispensa');
+  assert.equal(R.locationOf('Pasta e cereali', 'Spaghetti di semola'), 'Dispensa');
+});

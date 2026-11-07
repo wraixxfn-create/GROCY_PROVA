@@ -1,122 +1,730 @@
 'use strict';
-const G=window.Grocy;
-const paths={
- milk:'M8 3h8v4l3 5v9H5v-9l3-5Z M8 7h8 M5 13h14 M9 17h6',
- vegetable:'M12 8c-5-6-11 0-9 6 2 8 16 8 18 0 2-6-4-12-9-6Z M12 8V3 M12 6c3-4 6-3 7-3-1 3-4 4-7 3',
- grain:'M12 22V5 M12 9C7 9 5 6 5 3c5 0 7 3 7 6Z M12 14c-5 0-7-3-7-6 5 0 7 3 7 6Z M12 19c-5 0-7-3-7-6 5 0 7 3 7 6Z M12 12c5 0 7-3 7-6-5 0-7 3-7 6Z M12 17c5 0 7-3 7-6-5 0-7 3-7 6Z',
- fish:'M3 12c4-7 10-7 15-2l4-3v10l-4-3c-5 5-11 5-15-2Z M8 11h.01 M13 7c-3 3-3 7 0 10',
- can:'M5 6h14v15H5Z M4 3h16v3H4Z M5 12h14 M5 17h14 M9 9h6',
- bottle:'M9 3h6v5l3 5v8H6v-8l3-5Z M9 6h6 M6 14h12',
- leaf:'M20 3C9 3 3 7 3 13a6 6 0 0 0 10 4C17 13 19 8 20 3Z M4 21c1-6 5-10 10-13',
- home:'m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z',
- box:'m3 7 9-4 9 4-9 4Z M3 7v11l9 4 9-4V7 M12 11v11 M7 5l10 4',
- clock:'M12 8v5l3 2 M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z',
- cart:'M3 3h2l3 12h11l2-9H6 M9 20h.01 M18 20h.01',
- settings:'m9 3-.5 3-3 1-2.5-1.5-2 3 2 2.5v3l-2 2.5 2 3 3-1 2 1 1 3h4l1-3 2-1 3 1 2-3-2-2.5v-3L21 9l-2-3-2.5 1.5-3-1L13 3Z M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z',
- plus:'M12 5v14 M5 12h14',minus:'M5 12h14',arrow:'M4 12h16 m-6-6 6 6-6 6',check:'m5 12 4 4L19 6',
- shield:'m12 3 8 3v6c0 5-5 8-8 10-3-2-8-5-8-10V6Z m-4 9 3 3 5-6',
- search:'M21 21l-5-5 M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z',
- fridge:'M6 2h12v20H6Z M6 10h12 M9 5v2 M9 13v4',
- snow:'M12 2v20 M3 7l18 10 M3 17 21 7 M9 4l3 3 3-3 M9 20l3-3 3 3 M3 10l4-1-1-4 M18 19l-1-4 4-1 M3 14l4 1-1 4 M18 5l-1 4 4 1',
- info:'M12 11v6 M12 7h.01 M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z',
- bulb:'M9 18h6 M10 21h4 M8 14c-4-5-1-11 4-11s8 6 4 11l-1 2H9Z',
- download:'M12 3v12 m-5-5 5 5 5-5 M4 16v5h16v-5',upload:'M12 16V4 m-5 5 5-5 5 5 M4 16v5h16v-5',
- edit:'m4 16-1 5 5-1L20 8l-4-4Z M14 6l4 4',trash:'M3 6h18 M9 6V3h6v3 M5 6l1 15h12l1-15 M10 10v7 M14 10v7',
- close:'m6 6 12 12 M6 18 18 6',heart:'M20 5c-3-3-6-1-8 1-2-2-5-4-8-1-5 5 3 12 8 16 5-4 13-11 8-16Z',
- activity:'m3 12 4 0 3-8 4 16 3-8h4',list:'M9 6h12 M9 12h12 M9 18h12 M3 6h.01 M3 12h.01 M3 18h.01',
- reset:'M3 10a9 9 0 1 1 2 9 M3 3v7h7',alert:'m12 3 10 18H2Z M12 9v5 M12 17h.01',
- barcode:'M4 4v16 M7 4v16 M10 4v11 M14 4v16 M17 4v11 M20 4v16',
- camera:'M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z M12 16.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z'
-};
-const icon=(name)=>`<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="${paths[name]||paths.box}"/></svg>`;
-const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const num=n=>new Intl.NumberFormat('it-IT',{maximumFractionDigits:3}).format(n);
-const fmtDate=s=>s?new Date(s+'T12:00:00').toLocaleDateString('it-IT',{day:'numeric',month:'short'}):'Nessuna scadenza';
-const navs=[['home','home','Panoramica','Home'],['pantry','box','La mia dispensa','Dispensa'],['expiry','clock','Scadenze','Scadenze'],['shopping','cart','Lista della spesa','Spesa'],['settings','settings','Impostazioni','Impostazioni']];
-const native=!!(window.Android&&typeof Android.loadState==='function');
-const B=window.GrocyBarcode||{normalize:x=>String(x??'').trim(),decodeGray:()=>null,checksum:()=>false};
-const cameraNative=!!(native&&typeof Android.scanBarcode==='function');
-let scanTarget='',scanBusy=false;
-const STORAGE='grocy-locale-v1';
-let state=G.blank(),page='home',query='',locationFilter='',categoryFilter='',stockFilter='all',sort='name',expiryFilter='soon',toastTimer,loadError=false;
-try{const raw=native?Android.loadState():localStorage.getItem(STORAGE);if(raw)state=G.validate(JSON.parse(raw));}catch(e){loadError=true;}
-const $=s=>document.querySelector(s);
-function toast(message){$('#toast').textContent=message;$('#toast').classList.add('visible');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').classList.remove('visible'),3600);}
-function persist(next){
- if(loadError)throw new Error('Archivio non leggibile: esporta i dati originali nelle impostazioni prima di continuare.');
- next.updatedAt=new Date().toISOString();const raw=JSON.stringify(next);if(raw.length>2000000)throw new Error('Archivio pieno: esporta un backup e riduci i dati.');
- if(native){if(!Android.saveState(raw))throw new Error('Salvataggio sul telefono non riuscito.');}else localStorage.setItem(STORAGE,raw);
- state=next;
-}
-function update(action,message){try{const next=JSON.parse(JSON.stringify(state));action(next);persist(next);render();if(message)toast(message);return true;}catch(e){toast(e.message||'Salvataggio non riuscito.');return false;}}
-function navigate(p){if(!navs.some(n=>n[0]===p))p='home';page=p;query='';locationFilter='';categoryFilter='';stockFilter='all';if(location.hash!=='#'+p)location.hash=p;render();window.scrollTo(0,0);}
-function nav(){const stats=G.stats(state);for(const [sel,mobile] of [['.desktop-nav',false],['.bottom-nav',true]])$(sel).innerHTML=navs.map(([p,i,title,short])=>`<button class="nav-link ${page===p?'active':''}" data-action="navigate" data-page="${p}" ${page===p?'aria-current="page"':''}>${icon(i)}<span>${mobile?short:title}</span>${p==='shopping'&&stats.shopping?`<span class="count">${stats.shopping}</span>`:''}</button>`).join('');$('#breadcrumb').textContent=navs.find(n=>n[0]===page)[2];}
-const food=p=>{const c=p.category;return c==='Latticini e uova'?['milk','dairy']:c==='Verdura e frutta'?['vegetable','vegetable']:c==='Pasta e cereali'?['grain','grain']:c==='Carne e pesce'?['fish','dairy']:c==='Conserve'?['can','grain']:c==='Bevande'?['bottle','dairy']:c==='Surgelati'?['snow','vegetable']:['box','grain'];};
-function foodIcon(p){const [emoji,cls]=food(p);return `<span class="food-icon ${cls}" aria-hidden="true">${icon(emoji)}</span>`;}
-function expiryBadge(p){if(!p.expiry)return `<span class="badge neutral">Nessuna scadenza</span>`;const d=G.days(p.expiry);return `<span class="badge ${d<0?'expired':d<=state.settings.warningDays?'warn':''}">${d<0?`Scaduto da ${Math.abs(d)} ${Math.abs(d)===1?'giorno':'giorni'}`:d===0?'Scade oggi':d===1?'Scade domani':d<=state.settings.warningDays?`Tra ${d} giorni`:esc(fmtDate(p.expiry))}</span>`;}
-function heading(kicker,title,sub,action=''){return `<div class="page-heading"><div><p class="eyebrow">${kicker}</p><h1>${title}</h1><p class="subtitle">${sub}</p></div>${action}</div>`;}
-const addButton=()=>`<button class="btn" data-action="add">${icon('plus')}<span>Aggiungi prodotto</span></button>`;
-const scanButton=()=>`<button class="btn secondary" data-action="scan">${icon('barcode')}<span>Codice a barre</span></button>`;
-const twoPhotoButton=()=>`<button class="btn secondary" data-action="scan-two">${icon('camera')}<span>Due foto</span></button>`;
-const headingActions=()=>`<div class="heading-actions">${twoPhotoButton()}${scanButton()}${addButton()}</div>`;
-function empty(title,desc,button='',i='box'){return `<div class="empty"><div class="empty-icon">${icon(i)}</div><h3>${title}</h3><p>${desc}</p>${button}</div>`;}
-function productRow(p,consume=false){return `<div class="product-row">${foodIcon(p)}<div class="product-info"><button class="product-name" style="padding:0;text-align:left" data-action="details" data-id="${p.id}">${esc(p.name)}</button><div class="product-meta"><span>${esc(p.location)}</span><span class="dot">·</span><span>${num(p.qty)} ${p.unit}</span></div></div><div class="row-end">${expiryBadge(p)}${consume?`<div class="row-qty"><button class="btn text" data-action="quantity" data-mode="consume" data-id="${p.id}">Consuma ${icon('arrow')}</button></div>`:`<div class="row-qty">${esc(fmtDate(p.expiry))}</div>`}</div></div>`;}
-function illustration(){return `<div class="hero-illustration" aria-hidden="true"><svg viewBox="0 0 240 150" xmlns="http://www.w3.org/2000/svg"><ellipse cx="129" cy="136" rx="95" ry="9" fill="#dce5cf"/><path d="M65 63q-22-35-9-49 19 7 20 46M75 63q-3-46 13-56 15 22-2 58M86 67q12-33 30-29 0 25-23 38" fill="#9fb57d"/><path d="M60 62h45l-6 69H68Z" fill="#d8b991"/><path d="M61 62h44v12H62Z" fill="#c8a77b"/><path d="M131 46h37l5 85h-48Z" fill="#f6f6e8" stroke="#b8c99d" stroke-width="2"/><path d="m131 46 7-19h22l8 19" fill="#f5f4e8" stroke="#b8c99d" stroke-width="2"/><path d="M138 27h22v-8h-22Z" fill="#749464"/><path d="M126 79h44v26h-44Z" fill="#bdd1a8"/><path d="M139 91h19" stroke="#f8faee" stroke-width="3" stroke-linecap="round"/><path d="M173 84q7-27 29-18 25 9 18 33-5 16-24 16-24-1-23-31Z" fill="#d9a17c"/><path d="m196 72 3-17m-2 13q14-15 23-4-12 10-23 4Z" stroke="#839c62" stroke-width="3" fill="#b7c78d"/><path d="M100 99h42l6 31H95Z" fill="#e8d4a0"/><path d="M100 99q19 9 42 0" stroke="#c4ad78" stroke-width="2" fill="none"/><path d="M109 110h22" stroke="#b1a26e" stroke-width="2" stroke-linecap="round"/><path d="m26 96 5-6m-7 9 7 3m185-68 6-5m-3 15 7 1" stroke="#bdcaab" stroke-width="2" stroke-linecap="round"/></svg></div>`;}
-function home(){const st=G.stats(state);const urgent=state.products.filter(p=>p.qty>0&&G.days(p.expiry)<=state.settings.warningDays).sort((a,b)=>G.days(a.expiry)-G.days(b.expiry));
-return heading('PICCOLE ABITUDINI, MENO SPRECHI','La tua dispensa, sotto controllo.','Tutto quello che hai in casa, in un unico posto.',addButton())+
-(!native?`<div class="download-banner"><div><strong>${icon('download')} La tua dispensa, anche senza internet.</strong><p>Installa l’app Android: dati solo sul telefono, nessun server.</p></div><a class="btn" href="/downloads/grocy-locale-v1.2.0.apk" download>Scarica APK ${icon('arrow')}</a></div>`:'')+
-`<section class="hero"><div><div class="hero-kicker">PIÙ CONSAPEVOLEZZA. MENO SPRECO.</div><h2>Le cose buone meritano<br>di non essere dimenticate.</h2><p>Organizza le scorte, tieni d’occhio le scadenze<br>e fai spazio a una spesa più intelligente.</p><div class="hero-badge">${icon('leaf')} La sostenibilità inizia dalla tua dispensa.</div></div>${illustration()}</section>`+
-(!state.products.length?`<section class="welcome"><div><h3>Benvenuto nella tua nuova dispensa.</h3><p>Aggiungi il primo prodotto, oppure esplora l’app con dati di esempio.</p></div><button class="btn secondary small" data-action="demo">Prova con un esempio ${icon('arrow')}</button></section>`:'')+
-`<section class="stats" aria-label="Riepilogo dispensa">${[['pantry','box','Prodotti in dispensa',st.total,'prodotti','Tutte le tue scorte, a colpo d’occhio',''],['expiry','clock','In scadenza',st.expiring,'prodotti',`Nei prossimi ${state.settings.warningDays} giorni`,'orange'],['pantry','alert','Sotto scorta minima',st.low,'prodotti','È il momento di fare rifornimento','orange'],['shopping','cart','Da acquistare',st.shopping,'articoli','Nella tua lista della spesa','blue']].map(([p,i,label,n,unit,caption,cls])=>`<button class="stat ${cls}" data-action="stat" data-page="${p}" data-low="${i==='alert'}"><div class="stat-top"><span>${label}</span><span class="stat-icon">${icon(i)}</span></div><div class="stat-value">${n}<small>${unit}</small></div><div class="stat-caption">${caption}</div></button>`).join('')}</section>
-<div class="dashboard-grid"><section class="panel"><div class="panel-header"><div><div class="panel-title">${icon('clock')}<h2>Da consumare per primi</h2></div><p class="panel-subtitle">Un piccolo promemoria per evitare gli sprechi</p></div><button class="btn text" data-action="navigate" data-page="expiry">Vedi tutti ${icon('arrow')}</button></div>${urgent.length?urgent.slice(0,4).map(p=>productRow(p,true)).join(''):empty('Tutto in ordine',state.products.length?'Nessun prodotto in scadenza a breve. Continua così!':'Le scadenze dei tuoi prodotti appariranno qui.','','leaf')}<div class="panel-footer">${icon('info')}${st.expired?`${st.expired} prodotti già scaduti · Controlla le etichette`:`Mostriamo le scadenze entro ${state.settings.warningDays} giorni`}</div></section>
-<div><section class="panel"><div class="panel-header"><div class="panel-title"><h2>Ogni cosa al suo posto</h2></div><span class="badge neutral">3 luoghi</span></div><div class="location-list">${G.LOCATIONS.map((loc,i)=>{const n=state.products.filter(p=>p.location===loc).length;return `<button class="location-row" style="width:100%;text-align:left" data-action="location" data-location="${loc}"><span class="location-symbol">${icon(['box','fridge','snow'][i])}</span><span class="location-info"><strong>${loc}</strong><span class="progress-track" style="display:block"><span class="progress-fill" style="display:block;width:${state.products.length?n/state.products.length*100:0}%"></span></span></span><span class="location-count">${n} prodotti</span></button>`;}).join('')}</div></section><aside class="tip">${icon('bulb')}<div><h3>Un’abitudine che fa la differenza</h3><p>Prima di fare la spesa, dai un’occhiata alla dispensa. Spesso hai già quello che ti serve.</p></div></aside></div></div>
-<section class="panel recent"><div class="panel-header"><div class="panel-title">${icon('activity')}<h2>Ultime attività</h2></div><span class="privacy-tag">${icon('shield')} Solo sul tuo dispositivo</span></div><div class="recent-list">${state.history.length?state.history.slice(0,4).map(h=>`<div class="history-row">${icon(h.type==='consume'?'minus':h.type==='delete'?'trash':'plus')}<span><strong>${esc(h.name)}</strong> · ${esc(h.detail)}</span><small>${new Date(h.at).toLocaleDateString('it-IT',{day:'numeric',month:'short'})}</small></div>`).join(''):'<p class="section-description" style="margin-top:10px">Le aggiunte e i consumi della tua dispensa saranno annotati qui.</p>'}</div></section>`;
-}
-function pantry(){return heading('SCORTE ORGANIZZATE','La mia dispensa','Sai cosa c’è, sai cosa manca. Niente doppioni.',headingActions())+
-`<div class="toolbar"><label class="search">${icon('search')}<input id="search" type="search" placeholder="Cerca un prodotto o un codice a barre…" aria-label="Cerca nella dispensa" value="${esc(query)}"></label><select id="category-filter" aria-label="Filtra categoria"><option value="">Tutte le categorie</option>${G.CATEGORIES.map(c=>`<option ${c===categoryFilter?'selected':''}>${esc(c)}</option>`).join('')}</select><select id="sort" aria-label="Ordina prodotti"><option value="name" ${sort==='name'?'selected':''}>Nome A–Z</option><option value="expiry" ${sort==='expiry'?'selected':''}>Prima in scadenza</option><option value="qty" ${sort==='qty'?'selected':''}>Quantità crescente</option></select></div><div class="chips">${['',...G.LOCATIONS].map(c=>`<button class="chip ${locationFilter===c&&stockFilter!=='low'?'active':''}" data-action="filter-location" data-location="${c}">${c||'Tutti i luoghi'}</button>`).join('')}<button class="chip ${stockFilter==='low'?'active':''}" data-action="filter-low">Sotto scorta minima</button></div><div id="inventory-results"></div>`;}
-function filteredProducts(){return state.products.filter(p=>(!query||[p.name,p.barcode,p.notes].some(v=>v.toLocaleLowerCase('it').includes(query.toLocaleLowerCase('it'))))&&(!locationFilter||p.location===locationFilter)&&(!categoryFilter||p.category===categoryFilter)&&(stockFilter!=='low'||p.qty<p.min)).sort((a,b)=>sort==='expiry'?((G.days(a.expiry)-G.days(b.expiry))||a.name.localeCompare(b.name,'it')):sort==='qty'?a.qty-b.qty:a.name.localeCompare(b.name,'it'));}
-function renderInventory(){if(page!=='pantry')return;const products=filteredProducts();$('#inventory-results').innerHTML=`<p class="results-summary">${products.length} ${products.length===1?'prodotto':'prodotti'}${locationFilter?' in '+esc(locationFilter):''}</p>`+(products.length?`<div class="inventory">${products.map(p=>`<article class="inventory-card"><div class="card-topline"><div class="card-main">${foodIcon(p)}<div><button class="card-name" style="padding:0;text-align:left" data-action="details" data-id="${p.id}">${esc(p.name)}</button><div class="product-meta">${esc(p.location)} <span class="dot">·</span> ${esc(p.category)}</div></div></div><button class="icon-button" data-action="edit" data-id="${p.id}" aria-label="Modifica ${esc(p.name)}">${icon('edit')}</button></div><div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:15px">${expiryBadge(p)}${p.qty<p.min?`<span class="badge warn">Scorta minima: ${num(p.min)} ${p.unit}</span>`:''}</div><div class="card-bottom"><span class="quantity">${num(p.qty)} <small>${p.unit}</small></span><div class="qty-controls"><button data-action="quantity" data-mode="consume" data-id="${p.id}" aria-label="Consuma ${esc(p.name)}">${icon('minus')}</button><button data-action="quantity" data-mode="stock" data-id="${p.id}" aria-label="Rifornisci ${esc(p.name)}">${icon('plus')}</button></div></div></article>`).join('')}</div>`:empty(state.products.length?'Nessun prodotto trovato':'La tua dispensa ti aspetta',state.products.length?'Prova un’altra ricerca o modifica i filtri.':'Aggiungi quello che hai in casa. Quantità, scadenze e scorte saranno sempre a portata di mano.',headingActions()));}
-function expiry(){const all=state.products.filter(p=>p.qty>0&&p.expiry).sort((a,b)=>G.days(a.expiry)-G.days(b.expiry));const rows=all.filter(p=>expiryFilter==='all'||(expiryFilter==='expired'?G.days(p.expiry)<0:G.days(p.expiry)>=0&&G.days(p.expiry)<=state.settings.warningDays));return heading('UN PROMEMORIA GENTILE','Occhio alle scadenze','Consuma prima ciò che scade prima. Meno sprechi, più valore.')+`<div class="chips">${[['soon',`Entro ${state.settings.warningDays} giorni`],['expired','Già scaduti'],['all','Tutte le scadenze']].map(([v,t])=>`<button class="chip ${expiryFilter===v?'active':''}" data-action="expiry-filter" data-filter="${v}">${t} <b>· ${all.filter(p=>v==='all'||(v==='expired'?G.days(p.expiry)<0:G.days(p.expiry)>=0&&G.days(p.expiry)<=state.settings.warningDays)).length}</b></button>`).join('')}</div><p class="section-description">Le date sono quelle inserite da te. Controlla sempre le indicazioni sulla confezione: l’app non valuta la sicurezza degli alimenti. Nessuna notifica in background.</p><section class="panel expiry-list">${rows.length?rows.map(p=>productRow(p,true)).join(''):empty('Qui è tutto in ordine',expiryFilter==='expired'?'Nessun prodotto già scaduto nella tua dispensa.':'Non ci sono prodotti con scadenze in questo intervallo.','','leaf')}</section>`;}
-function shopping(){const pending=state.shopping.filter(p=>!p.done),done=state.shopping.filter(p=>p.done);return heading('COMPRA SOLO QUELLO CHE SERVE','La lista della spesa',`${pending.length} ${pending.length===1?'articolo da acquistare':'articoli da acquistare'}. Una spesa più leggera, in tutti i sensi.`,`<button class="btn" data-action="add-shopping">${icon('plus')} Aggiungi articolo</button>`)+
-`<div class="shopping-actions"><button class="btn secondary" data-action="shortages">${icon('box')} Aggiungi scorte mancanti</button>${done.length?`<button class="btn secondary" data-action="clear-done">${icon('check')} Rimuovi acquistati (${done.length})</button>`:''}</div>${state.shopping.length?`<div class="shop-progress"><div style="width:${done.length/state.shopping.length*100}%"></div></div><p class="results-summary">${done.length} di ${state.shopping.length} completati</p>`:''}<div class="list-heading">Da acquistare · ${pending.length}</div><section class="panel">${pending.length?pending.map(shopRow).join(''):empty('Non manca proprio niente',state.shopping.length?'Hai spuntato tutta la lista. Ricorda di caricare gli acquisti nella dispensa.':'Aggiungi un articolo o importa i prodotti sotto scorta minima.','','cart')}</section>${done.length?`<div class="list-heading">Nel carrello · ${done.length}</div><section class="panel">${done.map(shopRow).join('')}</section><p class="section-description" style="margin-top:15px">Spuntare un articolo non modifica le scorte. Usa il pulsante + nella dispensa per registrare l’acquisto.</p>`:''}`;}
-function shopRow(p){return `<div class="shopping-row ${p.done?'done':''}"><button class="check ${p.done?'checked':''}" data-action="toggle-shopping" data-id="${p.id}" role="checkbox" aria-checked="${p.done}" aria-label="${p.done?'Segna da acquistare':'Segna acquistato'}: ${esc(p.name)}">${p.done?icon('check'):''}</button><div class="product-info"><div class="product-name">${esc(p.name)}</div><div class="product-meta">${num(p.qty)} ${p.unit}</div></div><button class="icon-button" data-action="delete-shopping" data-id="${p.id}" aria-label="Elimina ${esc(p.name)} dalla lista">${icon('trash')}</button></div>`;}
-function settings(){return heading('IL TUO SPAZIO, LE TUE REGOLE','Impostazioni','Semplice da usare. Privata, per natura.')+`<div class="settings-grid"><section class="panel"><div class="panel-header"><div class="panel-title">${icon('shield')}<h2>I tuoi dati restano tuoi</h2></div></div><div class="settings-body"><p>La tua dispensa vive ${native?'nella memoria privata dell’app':'in questo browser'}. Non raccogliamo dati e non serve alcun server.</p><ul class="privacy-points"><li>${icon('check')} Funziona senza connessione a internet</li><li>${icon('check')} Nessun account e nessuna pubblicità</li><li>${icon('check')} Nessun tracciamento o servizio cloud</li><li>${icon('check')} Le foto delle etichette non vengono salvate</li></ul></div></section><section class="panel"><div class="panel-header"><div class="panel-title">${icon('clock')}<h2>Scadenze</h2></div></div><div class="settings-body"><p>Scegli quanti giorni prima mostrare un prodotto tra quelli in scadenza.</p><div class="setting-row"><label for="warning-days">Intervallo di preavviso</label><select id="warning-days">${[1,3,7,14].map(n=>`<option value="${n}" ${n===state.settings.warningDays?'selected':''}>${n} ${n===1?'giorno':'giorni'}</option>`).join('')}</select></div><p class="settings-note">I promemoria sono visibili nell’app. Non vengono inviate notifiche a telefono bloccato.</p></div></section><section class="panel settings-wide"><div class="panel-header"><div class="panel-title">${icon('download')}<h2>Una copia, per sicurezza</h2></div><span class="badge neutral">Backup JSON</span></div><div class="settings-body"><p>Esporta i tuoi dati in un file e conservalo dove preferisci. Puoi usarlo per spostare la dispensa su un altro telefono o ripristinarla in seguito.</p><div class="settings-buttons"><button class="btn" data-action="export">${icon('download')} Esporta backup</button><button class="btn secondary" data-action="import">${icon('upload')} Importa backup</button></div><p class="settings-note">${native?'Disinstallando l’app perderai i dati sul dispositivo. Esporta un backup prima di disinstallare.':'I dati della versione web e quelli dell’APK sono separati. Cancellando i dati del browser perderai la dispensa web.'} Un backup importato sostituisce tutti i dati attuali. I backup di Grocy originale non sono compatibili.</p></div></section><section class="panel settings-wide danger-zone"><div class="panel-header"><div class="panel-title">${icon('reset')}<h2>Riparti da zero</h2></div></div><div class="settings-body"><p>Cancella prodotti, lista della spesa e attività. Questa operazione non può essere annullata senza un backup.</p><button class="btn secondary" data-action="reset">Svuota tutti i dati</button></div></section></div><div class="about"><strong>Grocy Locale · Versione 1.1.0</strong><br>App indipendente ispirata a <a href="https://github.com/grocy/grocy" target="_blank" rel="noopener">Grocy</a>, progetto di Bernd Bestel, distribuito con licenza MIT.<br>Non è il client ufficiale e non include tutte le funzionalità di Grocy. Android 8.0 o successivo.</div>`;}
-function render(){nav();$('#main').innerHTML=({home,pantry,expiry,shopping,settings}[page])();renderInventory();if(loadError)$('#main').insertAdjacentHTML('afterbegin','<div class="welcome"><div><h3>Archivio non leggibile: dati non sovrascritti.</h3><p>Esporta il backup originale prima di ripristinare o svuotare l’archivio dalle impostazioni.</p></div></div>');document.querySelectorAll('[data-icon]').forEach(el=>el.innerHTML=icon(el.dataset.icon));}
-function modal(title,body){$('#modal-content').innerHTML=`<div class="modal-header"><h2 id="modal-title">${title}</h2><button data-action="close" aria-label="Chiudi">${icon('close')}</button></div><div class="modal-body">${body}</div>`;if(!$('#modal').open)$('#modal').showModal();}
-function closeModal(){$('#modal').close();}
-function options(arr,value){return arr.map(v=>`<option ${v===value?'selected':''}>${esc(v)}</option>`).join('');}
-function focusBarcodeInput(){const input=$('#barcode-form [name="barcode"]')||$('#product-form [name="barcode"]');if(input)input.focus();}
-function base64Bytes(text){const raw=atob(text),out=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)out[i]=raw.charCodeAt(i);return out;}
-function runDecode(gray,width,height){toast('Riconoscimento del codice…');setTimeout(()=>{let code=null;try{code=B.decodeGray(gray,width,height,{minVotes:2});}catch(e){code=null;}if(code){acceptCode(code);}else{toast('Codice non riconosciuto. Avvicina l’etichetta, evita riflessi e riprova.');focusBarcodeInput();}},60);}
-function acceptCode(raw){const code=B.normalize(raw);if(!code){toast('Codice non valido: usa EAN-13, UPC-A, EAN-8 oppure almeno 3 caratteri.');focusBarcodeInput();return;}const matches=state.products.filter(p=>B.normalize(p.barcode)===code);if(matches.length){scanTarget='';foundModal(matches,code);return;}if(scanTarget==='form'&&$('#product-form')){const input=$('#product-form [name="barcode"]');scanTarget='';if(input)input.value=code;toast(`Codice ${code} letto.`);return;}scanTarget='';productForm(null,code);}
-function launchScan(){if(scanBusy)return;if(cameraNative){scanBusy=true;try{Android.scanBarcode();}catch(e){scanBusy=false;scanTarget='';toast('Fotocamera non disponibile: inserisci il codice a mano.');}return;}const input=$('#scan-file');input.value='';input.click();}
-function scanPhoto(file){if(!file)return;if(!/^image\//.test(file.type||'')){toast('Scegli una foto dell’etichetta.');return;}if(file.size>15000000){toast('Foto troppo grande: usa uno scatto più leggero.');return;}toast('Preparazione della foto…');const reader=new FileReader();reader.onerror=()=>toast('Impossibile leggere la foto.');reader.onload=()=>{const img=new Image();img.onerror=()=>{toast('Foto non leggibile: riprova.');focusBarcodeInput();};img.onload=()=>{try{const iw=img.naturalWidth||img.width,ih=img.naturalHeight||img.height;if(!iw||!ih)throw new Error('Immagine vuota.');const scale=Math.min(1,1600/Math.max(iw,ih));const w=Math.max(1,Math.round(iw*scale)),h=Math.max(1,Math.round(ih*scale));const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.drawImage(img,0,0,w,h);const rgba=ctx.getImageData(0,0,w,h).data,gray=new Uint8Array(w*h);for(let i=0,j=0;i<gray.length;i++,j+=4)gray[i]=(rgba[j]*77+rgba[j+1]*150+rgba[j+2]*29)>>8;runDecode(gray,w,h);}catch(e){toast('Foto non leggibile: riprova.');focusBarcodeInput();}};img.src=String(reader.result);};reader.readAsDataURL(file);}
-function barcodeModal(){modal('Aggiungi con codice a barre',`<form id="barcode-form"><div class="scan-intro"><span class="scan-illustration">${icon('barcode')}</span><h3>Leggi l’etichetta</h3><p>Inquadra il codice a barre: l’app lo riconosce sul dispositivo. La foto non viene salvata e non esce dal telefono.</p><button type="button" class="btn" data-action="scan-camera">${icon('camera')} Scansiona con la fotocamera</button><p class="form-hint">${cameraNative?'Si apre la fotocamera del telefono e al ritorno il codice viene letto da solo.':'Scegli o scatta una foto dell’etichetta. Nell’APK Android si apre direttamente la fotocamera.'}</p></div><div class="scan-divider"><span>oppure inserisci il codice</span></div><label>Codice a barre<input name="barcode" maxlength="80" inputmode="numeric" autocomplete="off" placeholder="Es. 4006381333931"></label><p class="form-hint">Sono supportati EAN-13, UPC-A ed EAN-8. Se il codice è già associato a un prodotto puoi fare subito rifornimento.</p><p id="form-error" class="form-error" role="alert"></p><div class="button-row"><button type="button" class="btn secondary" data-action="close">Annulla</button><button type="submit" class="btn">${icon('arrow')} Cerca prodotto</button></div></form>`);setTimeout(()=>{const input=$('#barcode-form [name="barcode"]');if(input)input.focus();},40);}
-function foundModal(matches,code){const rows=matches.map(p=>`<div class="scan-match"><span class="food-icon ${food(p)[1]}" aria-hidden="true">${icon(food(p)[0])}</span><div class="product-info"><button class="product-name" style="padding:0;text-align:left" data-action="details" data-id="${p.id}">${esc(p.name)}</button><div class="product-meta">${num(p.qty)} ${p.unit} <span class="dot">·</span> ${esc(p.location)}${p.expiry?` <span class="dot">·</span> ${esc(fmtDate(p.expiry))}`:''}</div></div>${matches.length>1?`<button class="btn small" data-action="restock" data-id="${p.id}">${icon('plus')} Rifornisci</button>`:''}</div>`).join('');modal('Codice già in dispensa',`<p class="scan-found">${icon('check')} Il codice <b>${esc(code)}</b> è già associato ${matches.length===1?'a questo prodotto':'a questi prodotti'}.</p>${rows}<p class="form-hint">Registra il rifornimento senza creare un doppione. Se la nuova confezione ha una scadenza diversa, aggiorna la data dalla scheda del prodotto.</p><div class="button-row"><button type="button" class="btn secondary" data-action="close">Chiudi</button>${matches.length===1?`<button type="button" class="btn" data-action="restock" data-id="${matches[0].id}">${icon('plus')} Rifornimento</button>`:''}</div>`);}
-function productForm(product,scannedCode='',draft=null){const p=product||{name:'',qty:1,min:1,unit:'pz',category:G.CATEGORIES[0],location:locationFilter||'Dispensa',expiry:'',barcode:scannedCode||'',notes:'',...(draft||{})};const read=!product&&!!(scannedCode||draft);const scanBadge=!read?'':draft?`<p class="scan-badge">${icon('camera')} Dati letti dalle due foto: controlla e conferma.</p>`:`<p class="scan-badge">${icon('barcode')} Codice letto: <b>${esc(B.normalize(scannedCode)||scannedCode)}</b></p>`;modal(product?'Modifica prodotto':'Un nuovo prodotto',`<form id="product-form" data-id="${product?.id||''}">${scanBadge}<div class="form-grid"><label class="wide">Nome del prodotto *<input name="name" required maxlength="120" autocomplete="off" value="${esc(p.name)}" placeholder="Es. Latte intero"></label><label>Quantità *<input type="number" name="qty" required min="0" max="999999" step="0.001" inputmode="decimal" value="${p.qty}"></label><label>Unità di misura<select name="unit">${options(G.UNITS,p.unit)}</select></label><label>Scorta minima<input type="number" name="min" required min="0" max="999999" step="0.001" inputmode="decimal" value="${p.min}"></label><label>Data di scadenza<input type="date" name="expiry" value="${p.expiry}" min="2000-01-01" max="2199-12-31"></label><label>Luogo<select name="location">${options(G.LOCATIONS,p.location)}</select></label><label>Categoria<select name="category">${options(G.CATEGORIES,p.category)}</select></label><label class="wide">Codice a barre (facoltativo)<span class="field-row"><input name="barcode" maxlength="80" autocomplete="off" inputmode="numeric" value="${esc(p.barcode)}" placeholder="EAN-13, UPC-A o EAN-8"><button class="btn secondary small" type="button" data-action="scan-into-form" aria-label="Leggi il codice con la fotocamera">${icon('camera')}<span>Leggi</span></button></span></label><label class="wide">Note<textarea name="notes" maxlength="1000" placeholder="Marca, formato o un piccolo promemoria…">${esc(p.notes)}</textarea></label></div><p class="form-hint">Con «Due foto» nome, scadenza e quantità arrivano dal testo letto sul telefono; il codice si può anche digitare. Nessun catalogo online. Per confezioni con scadenze diverse crea voci separate.</p><p id="form-error" class="form-error" role="alert"></p><div class="button-row"><button type="button" class="btn secondary" data-action="close">Annulla</button><button type="submit" class="btn">${icon('check')} Salva prodotto</button></div></form>`);if(read)setTimeout(()=>{const input=$('#product-form [name="name"]');if(input)input.focus();},40);}
-function details(id){const p=state.products.find(p=>p.id===id);if(!p)return;modal(esc(p.name),`<div class="card-main">${foodIcon(p)}<div><span class="quantity">${num(p.qty)} <small>${p.unit}</small></span><div style="margin-top:9px">${expiryBadge(p)}</div></div></div><div class="detail-grid">${[['Luogo',p.location],['Categoria',p.category],['Scorta minima',num(p.min)+' '+p.unit],['Scadenza',fmtDate(p.expiry)],['Codice a barre',p.barcode||'Non impostato']].map(([l,v])=>`<div><small>${l}</small><strong>${esc(v)}</strong></div>`).join('')}</div>${p.notes?`<p class="details-note">${esc(p.notes)}</p>`:''}<div class="button-row"><button class="btn secondary" data-action="delete-product" data-id="${id}">${icon('trash')} Elimina</button><button class="btn" data-action="edit" data-id="${id}">${icon('edit')} Modifica</button></div>`);}
-function quantityForm(id,mode){const p=state.products.find(p=>p.id===id);if(!p)return;if(mode==='consume'&&!p.qty)return toast('Questo prodotto è esaurito.');modal(mode==='consume'?'Registra un consumo':'Fai rifornimento',`<form id="quantity-form" data-id="${id}" data-mode="${mode}"><h3>${esc(p.name)}</h3><p class="section-description">In dispensa: ${num(p.qty)} ${p.unit}</p><label style="font-size:12px">Quantità da ${mode==='consume'?'consumare':'aggiungere'} (${p.unit})<input name="amount" style="margin-top:9px" type="number" min="0.001" max="${mode==='consume'?p.qty:999999-p.qty}" step="0.001" value="${mode==='consume'?Math.min(1,p.qty):1}" required inputmode="decimal"></label><p class="form-hint">${mode==='consume'?'La quantità verrà sottratta dalle scorte.':'La scadenza non cambia. Per una nuova scadenza crea un prodotto separato.'}</p><p id="form-error" class="form-error" role="alert"></p><div class="button-row"><button class="btn secondary" type="button" data-action="close">Annulla</button><button type="submit" class="btn">Conferma</button></div></form>`);}
-function shoppingForm(){modal('Aggiungi alla lista',`<form id="shopping-form"><div class="form-grid"><label class="wide">Cosa ti serve? *<input name="name" maxlength="120" required placeholder="Es. Pane integrale"></label><label>Quantità<input name="qty" type="number" required min="0.001" max="999999" step="0.001" value="1" inputmode="decimal"></label><label>Unità<select name="unit">${options(G.UNITS,'pz')}</select></label></div><p id="form-error" class="form-error" role="alert"></p><div class="button-row"><button type="button" class="btn secondary" data-action="close">Annulla</button><button type="submit" class="btn">Aggiungi alla lista</button></div></form>`);}
-function confirmModal(title,description,action,label='Conferma',danger=false){modal(title,`<p class="section-description">${description}</p><div class="button-row"><button class="btn secondary" data-action="close">Annulla</button><button class="btn ${danger?'danger':''}" id="confirm-button">${label}</button></div>`);$('#confirm-button').addEventListener('click',()=>{action();});}
-function importBackup(raw){try{if(typeof raw!=='string'||raw.length>2000000)throw new Error('File troppo grande (massimo 2 MB).');const next=G.validate(JSON.parse(raw));confirmModal('Ripristinare questo backup?',`Contiene ${next.products.length} prodotti e ${next.shopping.length} articoli della spesa. <strong>Sostituirà tutti i dati attuali</strong>. Esporta prima un backup se vuoi conservarli.`,()=>{try{loadError=false;persist(next);closeModal();render();toast('Backup ripristinato.');}catch(e){loadError=true;toast(e.message);}},'Ripristina backup',true);}catch(e){toast(e instanceof SyntaxError?'Il file non contiene JSON valido.':e.message);}}
-window.onNativeScan=payload=>{scanBusy=false;if(!payload){toast('Scansione annullata.');return;}try{runDecode(base64Bytes(payload.data),payload.width,payload.height);}catch(e){toast('Foto non leggibile: riprova o inserisci il codice a mano.');focusBarcodeInput();}};
-window.onNativeScanError=message=>{scanBusy=false;toast(message||'Fotocamera non disponibile: inserisci il codice a mano.');focusBarcodeInput();};
-window.onNativeBackup=importBackup;
-window.onNativeResult=(ok,message)=>toast(message);
-window.handleAndroidBack=()=>{if($('#modal').open){closeModal();return true;}if(page!=='home'){navigate('home');return true;}return false;};
-function exportBackup(){try{const raw=loadError?(native?Android.loadState():localStorage.getItem(STORAGE)):JSON.stringify(state,null,2);if(!raw)throw new Error('Nessun dato da esportare.');if(native){Android.exportBackup(raw);}else{const url=URL.createObjectURL(new Blob([raw],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=`grocy-locale-${G.today()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);toast('Backup preparato per il download.');}}catch(e){toast('Esportazione non riuscita: '+e.message);}}
-document.addEventListener('click',e=>{const el=e.target.closest('[data-action]');if(!el)return;const d=el.dataset;switch(d.action){case'navigate':navigate(d.page);break;case'scan':scanTarget='';barcodeModal();break;case'scan-camera':scanTarget='code';launchScan();break;case'scan-into-form':scanTarget='form';launchScan();break;case'restock':quantityForm(d.id,'stock');break;case'close':closeModal();break;case'add':productForm();break;case'edit':productForm(state.products.find(p=>p.id===d.id));break;case'details':details(d.id);break;case'quantity':quantityForm(d.id,d.mode);break;case'add-shopping':shoppingForm();break;case'demo':if(state.products.length)toast('La dispensa contiene già dei prodotti.');else update(s=>Object.assign(s,G.demo()),'Dispensa di esempio pronta. Puoi modificarla liberamente.');break;
-case'stat':navigate(d.page);if(d.low==='true'){stockFilter='low';render();}break;case'location':navigate('pantry');locationFilter=d.location;render();break;case'filter-location':locationFilter=d.location;stockFilter='all';render();break;case'filter-low':stockFilter=stockFilter==='low'?'all':'low';render();break;case'expiry-filter':expiryFilter=d.filter;render();break;
-case'shortages':{let n=0;if(update(s=>{n=G.addShortages(s);}))toast(n?`${n} articoli aggiunti alla lista.`:'Nessuna scorta mancante da aggiungere.');break;}
-case'toggle-shopping':update(s=>{const p=s.shopping.find(p=>p.id===d.id);if(p)p.done=!p.done;});break;case'delete-shopping':update(s=>{s.shopping=s.shopping.filter(p=>p.id!==d.id);},'Articolo rimosso.');break;case'clear-done':update(s=>{s.shopping=s.shopping.filter(p=>!p.done);},'Articoli acquistati rimossi.');break;
-case'delete-product':{const p=state.products.find(p=>p.id===d.id);if(p)confirmModal('Eliminare il prodotto?',`Vuoi eliminare <strong>${esc(p.name)}</strong> dalla dispensa?`,()=>{if(update(s=>{s.products=s.products.filter(x=>x.id!==d.id);G.log(s,'delete',p.name,'Rimosso dalla dispensa');},'Prodotto eliminato.'))closeModal();},'Elimina',true);break;}
-case'export':exportBackup();break;case'import':if(native)Android.importBackup();else{$('#import-file').value='';$('#import-file').click();}break;
-case'reset':confirmModal('Svuotare tutta la dispensa?','Questa operazione elimina prodotti, lista della spesa e attività. <strong>Non è annullabile</strong>: esporta prima un backup.',()=>{try{loadError=false;persist(G.blank());closeModal();render();toast('Tutti i dati sono stati eliminati.');}catch(e){loadError=true;toast(e.message);}},'Elimina tutti i dati',true);break;
-}});
-document.addEventListener('input',e=>{if(e.target.id==='search'){query=e.target.value;renderInventory();}});
-document.addEventListener('change',async e=>{if(e.target.id==='category-filter'){categoryFilter=e.target.value;renderInventory();}if(e.target.id==='sort'){sort=e.target.value;renderInventory();}if(e.target.id==='warning-days')update(s=>s.settings.warningDays=Number(e.target.value),'Preavviso aggiornato.');if(e.target.id==='scan-file'){const f=e.target.files&&e.target.files[0];e.target.value='';if(f)scanPhoto(f);}if(e.target.id==='import-file'){const f=e.target.files[0];if(f){if(f.size>8000000)return toast('Il backup supera la dimensione massima.');try{importBackup(await f.text());}catch{toast('Impossibile leggere il file.');}}}});
-document.addEventListener('submit',e=>{const form=e.target;if(!['product-form','shopping-form','quantity-form','barcode-form'].includes(form.id))return;e.preventDefault();const data=Object.fromEntries(new FormData(form));try{if(form.id==='product-form'){const p={...data,id:form.dataset.id||G.id(),name:data.name.trim(),qty:Number(data.qty),min:Number(data.min)};if(!form.dataset.id&&window.GrocyScanUI)GrocyScanUI.decorate(p);if(!p.name)throw new Error('Inserisci il nome del prodotto.');if(p.barcode){p.barcode=B.normalize(p.barcode);if(!p.barcode)throw new Error('Il codice deve avere almeno 3 caratteri tra lettere, numeri, punto, trattino o underscore.');const dup=state.products.find(x=>x.id!==p.id&&B.normalize(x.barcode)===p.barcode);if(dup)throw new Error(`Il codice ${p.barcode} è già associato a “${dup.name}”. Aprilo dalla dispensa per fare rifornimento.`);}else p.barcode='';const test=G.blank();test.products=[p];G.validate(test);if(update(s=>{const i=s.products.findIndex(x=>x.id===p.id);if(i<0)s.products.push(p);else s.products[i]=p;G.log(s,i<0?'add':'edit',p.name,i<0?`Aggiunti ${num(p.qty)} ${p.unit}`:'Prodotto aggiornato');},'Prodotto salvato.'))closeModal();}if(form.id==='barcode-form'){const code=B.normalize(data.barcode);if(!code)throw new Error('Inserisci un codice di almeno 3 caratteri.');acceptCode(code);}if(form.id==='shopping-form'){if(!data.name.trim())throw new Error('Inserisci un nome.');const p={id:G.id(),name:data.name.trim(),qty:Number(data.qty),unit:data.unit,done:false};const test=G.blank();test.shopping=[p];G.validate(test);if(update(s=>s.shopping.push(p),'Articolo aggiunto.'))closeModal();}if(form.id==='quantity-form'){const amount=Number(data.amount);if(!Number.isFinite(amount)||amount<=0)throw new Error('Inserisci una quantità maggiore di zero.');if(update(s=>G.changeQuantity(s,form.dataset.id,amount*(form.dataset.mode==='consume'?-1:1)),form.dataset.mode==='consume'?'Consumo registrato.':'Scorte aggiornate.'))closeModal();}}catch(err){$('#form-error').textContent=err.message;}});
-window.addEventListener('hashchange',()=>{const p=location.hash.slice(1);if(p!==page)navigate(p);});
-$('#modal').addEventListener('click',e=>{if(e.target===$('#modal')){const r=e.target.getBoundingClientRect();if(e.clientY<r.top||e.clientY>r.bottom||e.clientX<r.left||e.clientX>r.right)closeModal();}});
-window.GrocyUI={state:()=>state,update,persist,toast,modal,closeModal,productForm,quantityForm,details,icon,esc,num,fmtDate,food,navigate};
-page=navs.some(n=>n[0]===location.hash.slice(1))?location.hash.slice(1):'home';render();
+(function () {
+  const G = window.Grocy;
+  const B = window.GrocyBarcode || { normalize: x => String(x ?? '').trim(), decodeGray: () => null, checksum: () => false };
+
+  const paths = {
+    milk: 'M8 3h8v4l3 5v9H5v-9l3-5Z M8 7h8 M5 13h14 M9 17h6',
+    vegetable: 'M12 8c-5-6-11 0-9 6 2 8 16 8 18 0 2-6-4-12-9-6Z M12 8V3 M12 6c3-4 6-3 7-3-1 3-4 4-7 3',
+    grain: 'M12 22V5 M12 9C7 9 5 6 5 3c5 0 7 3 7 6Z M12 14c-5 0-7-3-7-6 5 0 7 3 7 6Z M12 19c-5 0-7-3-7-6 5 0 7 3 7 6Z M12 12c5 0 7-3 7-6-5 0-7 3-7 6Z M12 17c5 0 7-3 7-6-5 0-7 3-7 6Z',
+    fish: 'M3 12c4-7 10-7 15-2l4-3v10l-4-3c-5 5-11 5-15-2Z M8 11h.01 M13 7c-3 3-3 7 0 10',
+    can: 'M5 6h14v15H5Z M4 3h16v3H4Z M5 12h14 M5 17h14 M9 9h6',
+    bottle: 'M9 3h6v5l3 5v8H6v-8l3-5Z M9 6h6 M6 14h12',
+    leaf: 'M20 3C9 3 3 7 3 13a6 6 0 0 0 10 4C17 13 19 8 20 3Z M4 21c1-6 5-10 10-13',
+    box: 'm3 7 9-4 9 4-9 4Z M3 7v11l9 4 9-4V7 M12 11v11 M7 5l10 4',
+    clock: 'M12 8v5l3 2 M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z',
+    cart: 'M3 3h2l3 12h11l2-9H6 M9 20h.01 M18 20h.01',
+    settings: 'm9 3-.5 3-3 1-2.5-1.5-2 3 2 2.5v3l-2 2.5 2 3 3-1 2 1 1 3h4l1-3 2-1 3 1 2-3-2-2.5v-3L21 9l-2-3-2.5 1.5-3-1L13 3Z M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z',
+    plus: 'M12 5v14 M5 12h14',
+    minus: 'M5 12h14',
+    arrow: 'M4 12h16 m-6-6 6 6-6 6',
+    check: 'm5 12 4 4L19 6',
+    shield: 'm12 3 8 3v6c0 5-5 8-8 10-3-2-8-5-8-10V6Z m-4 9 3 3 5-6',
+    search: 'M21 21l-5-5 M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z',
+    fridge: 'M6 2h12v20H6Z M6 10h12 M9 5v2 M9 13v4',
+    snow: 'M12 2v20 M3 7l18 10 M3 17 21 7 M9 4l3 3 3-3 M9 20l3-3 3 3',
+    download: 'M12 3v12 m-5-5 5 5 5-5 M4 16v5h16v-5',
+    upload: 'M12 16V4 m-5 5 5-5 5 5 M4 16v5h16v-5',
+    edit: 'm4 16-1 5 5-1L20 8l-4-4Z M14 6l4 4',
+    trash: 'M3 6h18 M9 6V3h6v3 M5 6l1 15h12l1-15 M10 10v7 M14 10v7',
+    close: 'm6 6 12 12 M6 18 18 6',
+    reset: 'M3 10a9 9 0 1 1 2 9 M3 3v7h7',
+    alert: 'm12 3 10 18H2Z M12 9v5 M12 17h.01',
+    camera: 'M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z M12 16.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z',
+    globe: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Z M2 12h20 M12 2a15 15 0 0 1 0 20 M12 2a15 15 0 0 0 0 20'
+  };
+
+  const icon = name => `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="${paths[name] || paths.box}"/></svg>`;
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const num = n => new Intl.NumberFormat('it-IT', { maximumFractionDigits: 3 }).format(n);
+  const fmtDate = s => {
+    if (!s) return 'Senza scadenza';
+    const d = new Date(s + 'T12:00:00');
+    const sameYear = d.getFullYear() === new Date().getFullYear();
+    return d.toLocaleDateString('it-IT', sameYear ? { day: 'numeric', month: 'short' } : { day: 'numeric', month: 'short', year: 'numeric' });
+  };
+
+  const navs = [
+    ['pantry', 'box', 'Dispensa'],
+    ['shopping', 'cart', 'Spesa'],
+    ['settings', 'settings', 'Impostazioni']
+  ];
+
+  const native = !!(window.Android && typeof Android.loadState === 'function');
+  const MAX_ARCHIVE = 12000000;
+  const STORAGE = 'grocy-locale-v1';
+  const APK_PATH = '/downloads/grocy-locale-v2.0.0.apk';
+
+  let state = G.blank();
+  let page = 'pantry';
+  let query = '';
+  let placeFilter = 'all'; // 'all' | 'expiring' | 'Dispensa' | 'Frigorifero' | 'Congelatore'
+  let categoryFilter = '';
+  let sort = 'expiry';     // 'expiry' | 'name'
+  let toastTimer = null;
+  let loadError = false;
+
+  try {
+    const raw = native ? Android.loadState() : localStorage.getItem(STORAGE);
+    if (raw) state = G.validate(JSON.parse(raw));
+  } catch (e) {
+    loadError = true;
+  }
+
+  const $ = s => document.querySelector(s);
+
+  function toast(message) {
+    const el = $('#toast');
+    if (!el) return;
+    el.textContent = message;
+    el.classList.add('visible');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('visible'), 3200);
+  }
+
+  function persist(next) {
+    if (loadError) throw new Error('Archivio non leggibile: esporta i dati originali nelle impostazioni prima di continuare.');
+    next.updatedAt = new Date().toISOString();
+    const raw = JSON.stringify(next);
+    if (raw.length > MAX_ARCHIVE) throw new Error('Archivio pieno: esporta un backup e riduci i prodotti salvati.');
+    if (native) {
+      if (!Android.saveState(raw)) throw new Error('Salvataggio sul telefono non riuscito.');
+    } else {
+      localStorage.setItem(STORAGE, raw);
+    }
+    state = next;
+  }
+
+  function update(action, message) {
+    try {
+      const next = JSON.parse(JSON.stringify(state));
+      action(next);
+      persist(next);
+      render();
+      if (message) toast(message);
+      return true;
+    } catch (e) {
+      toast(e.message || 'Salvataggio non riuscito.');
+      return false;
+    }
+  }
+
+  function foodMeta(category) {
+    switch (category) {
+      case 'Latticini e uova': return ['milk', 'dairy'];
+      case 'Verdura e frutta': return ['vegetable', 'vegetable'];
+      case 'Pasta e cereali': return ['grain', 'grain'];
+      case 'Carne e pesce': return ['fish', 'dairy'];
+      case 'Conserve': return ['can', 'grain'];
+      case 'Bevande': return ['bottle', 'dairy'];
+      case 'Surgelati': return ['snow', 'dairy'];
+      default: return ['box', 'grain'];
+    }
+  }
+
+  const food = p => foodMeta(p && p.category);
+
+  function productVisual(p) {
+    if (p.thumb) {
+      return `<button class="product-thumb-btn" type="button" data-action="edit" data-id="${esc(p.id)}" aria-label="Apri ${esc(p.name)}"><img class="product-thumb" src="${esc(p.thumb)}" alt="${esc(p.name)}"></button>`;
+    }
+    const [ic, cls] = foodMeta(p.category);
+    return `<button class="food-icon ${cls}" type="button" data-action="edit" data-id="${esc(p.id)}" aria-label="Apri ${esc(p.name)}">${icon(ic)}</button>`;
+  }
+
+  function expiryBadge(p) {
+    if (!p.expiry) return `<span class="badge neutral">Senza scadenza</span>`;
+    const d = G.days(p.expiry);
+    if (d < 0) {
+      const abs = Math.abs(d);
+      return `<span class="badge expired">${icon('alert')} Scaduto da ${abs} ${abs === 1 ? 'giorno' : 'giorni'}</span>`;
+    }
+    if (d === 0) return `<span class="badge expired">${icon('clock')} Scade oggi</span>`;
+    if (d === 1) return `<span class="badge warn">${icon('clock')} Scade domani</span>`;
+    if (d <= state.settings.warningDays) return `<span class="badge warn">${icon('clock')} Tra ${d} giorni (${esc(fmtDate(p.expiry))})</span>`;
+    return `<span class="badge">${icon('clock')} ${esc(fmtDate(p.expiry))}</span>`;
+  }
+
+  function stepSize(p) {
+    if (p.unit === 'g' || p.unit === 'ml') return p.qty >= 100 ? 100 : (p.qty >= 25 ? 25 : 10);
+    if (p.unit === 'kg' || p.unit === 'l') return Number.isInteger(p.qty) && p.qty >= 1 ? 1 : 0.25;
+    return 1;
+  }
+
+  function locIcon(loc) {
+    return loc === 'Frigorifero' ? 'fridge' : loc === 'Congelatore' ? 'snow' : 'box';
+  }
+
+  function navigate(target) {
+    if (target === 'expiry') {
+      page = 'pantry';
+      placeFilter = 'expiring';
+    } else if (target === 'home' || !navs.some(n => n[0] === target)) {
+      page = 'pantry';
+    } else {
+      page = target;
+    }
+    if (location.hash !== '#' + page) history.replaceState(null, '', '#' + page);
+    render();
+    window.scrollTo(0, 0);
+  }
+
+  function renderNav() {
+    const st = G.stats(state);
+    const urgent = st.expired + st.expiring;
+    for (const sel of ['.top-tabs', '.bottom-nav']) {
+      const container = $(sel);
+      if (!container) continue;
+      container.innerHTML = navs.map(([id, ic, label]) => {
+        const badge = id === 'pantry' && urgent
+          ? `<span class="nav-badge warn" title="Prodotti in scadenza">${urgent}</span>`
+          : id === 'shopping' && st.shopping
+          ? `<span class="nav-badge">${st.shopping}</span>`
+          : '';
+        return `<button class="nav-link ${page === id ? 'active' : ''}" type="button" data-action="navigate" data-page="${id}" ${page === id ? 'aria-current="page"' : ''}>${icon(ic)}<span>${label}</span>${badge}</button>`;
+      }).join('');
+    }
+    const fab = $('.fab');
+    if (fab) fab.style.display = page === 'pantry' ? '' : 'none';
+  }
+
+  function isUrgent(p) {
+    return p.qty > 0 && p.expiry && G.days(p.expiry) <= state.settings.warningDays;
+  }
+
+  function filteredProducts() {
+    const q = query.trim().toLocaleLowerCase('it');
+    return state.products.filter(p => {
+      if (placeFilter === 'expiring' && !isUrgent(p)) return false;
+      if (G.LOCATIONS.includes(placeFilter) && p.location !== placeFilter) return false;
+      if (categoryFilter && p.category !== categoryFilter) return false;
+      if (q && ![p.name, p.category, p.location, p.barcode, p.notes].some(v => String(v || '').toLocaleLowerCase('it').includes(q))) return false;
+      return true;
+    }).sort((a, b) => {
+      // I prodotti esauriti vanno in fondo così le scorte attive restano sempre pulite in alto.
+      if ((a.qty === 0) !== (b.qty === 0)) return a.qty === 0 ? 1 : -1;
+      if (sort === 'name') return a.name.localeCompare(b.name, 'it');
+      return (G.days(a.expiry) - G.days(b.expiry)) || a.name.localeCompare(b.name, 'it');
+    });
+  }
+
+  function pantryView() {
+    const urgentCount = state.products.filter(isUrgent).length;
+    const locCounts = Object.fromEntries(G.LOCATIONS.map(l => [l, state.products.filter(p => p.location === l).length]));
+
+    const banner = !native ? `<div class="apk-banner">
+      <div class="apk-banner-text">
+        <strong>Usa Grocy Locale direttamente dal telefono</strong>
+        <span>Nessun server da installare: scatta le 2 foto e salva tutto in locale sull’app Android.</span>
+      </div>
+      <a class="btn" href="${APK_PATH}" download>${icon('download')} Scarica APK</a>
+    </div>` : '';
+
+    if (!state.products.length) {
+      return banner + `<div class="empty-state">
+        <div class="empty-icon">${icon('camera')}</div>
+        <h2>La tua dispensa è vuota</h2>
+        <p>Per inserire un prodotto bastano <b>2 foto</b>: una al <b>fronte della confezione</b> (nome, miniatura e categoria) e una alla <b>data di scadenza dietro</b>.</p>
+        <div class="empty-actions">
+          <button class="btn" type="button" data-action="scan-two">${icon('camera')} Aggiungi con 2 foto</button>
+          <button class="btn secondary" type="button" data-action="demo">Carica esempio</button>
+        </div>
+      </div>`;
+    }
+
+    return banner + `
+      <div class="place-bar" role="tablist" aria-label="Filtra per luogo o scadenza">
+        <button class="place-pill ${placeFilter === 'all' ? 'active' : ''}" type="button" data-action="place" data-place="all">
+          Tutti <b>${state.products.length}</b>
+        </button>
+        <button class="place-pill urgent ${placeFilter === 'expiring' ? 'active' : ''}" type="button" data-action="place" data-place="expiring">
+          ${icon('clock')} In scadenza <b>${urgentCount}</b>
+        </button>
+        ${G.LOCATIONS.map(loc => `<button class="place-pill ${placeFilter === loc ? 'active' : ''}" type="button" data-action="place" data-place="${loc}">
+          ${icon(locIcon(loc))} ${loc} <b>${locCounts[loc]}</b>
+        </button>`).join('')}
+      </div>
+
+      <div class="filter-bar">
+        <label class="search-box">
+          ${icon('search')}
+          <input id="search" type="search" placeholder="Cerca prodotto o marca…" aria-label="Cerca nella dispensa" value="${esc(query)}">
+        </label>
+        <select id="sort" class="sort-select" aria-label="Ordina prodotti">
+          <option value="expiry" ${sort === 'expiry' ? 'selected' : ''}>Per scadenza</option>
+          <option value="name" ${sort === 'name' ? 'selected' : ''}>Nome A–Z</option>
+        </select>
+      </div>
+
+      <div class="cat-strip" aria-label="Filtra per categoria">
+        <button class="cat-chip ${!categoryFilter ? 'active' : ''}" type="button" data-action="cat" data-cat="">Tutte</button>
+        ${G.CATEGORIES.map(c => `<button class="cat-chip ${categoryFilter === c ? 'active' : ''}" type="button" data-action="cat" data-cat="${esc(c)}">${esc(c)}</button>`).join('')}
+      </div>
+
+      <div id="inventory-results"></div>
+    `;
+  }
+
+  function renderInventory() {
+    const host = $('#inventory-results');
+    if (page !== 'pantry' || !host) return;
+    const list = filteredProducts();
+    if (!list.length) {
+      host.innerHTML = `<div class="empty-state">
+        <div class="empty-icon">${icon('search')}</div>
+        <h2>Nessun prodotto qui</h2>
+        <p>${placeFilter === 'expiring' ? `Ottimo! Nessun prodotto scade entro ${state.settings.warningDays} giorni.` : 'Prova a cambiare filtro o aggiungi un nuovo prodotto con 2 foto.'}</p>
+        <div class="empty-actions">
+          ${placeFilter !== 'all' || categoryFilter || query ? `<button class="btn secondary" type="button" data-action="clear-filters">Mostra tutti</button>` : ''}
+          <button class="btn" type="button" data-action="scan-two">${icon('camera')} Aggiungi con 2 foto</button>
+        </div>
+      </div>`;
+      return;
+    }
+
+    host.innerHTML = `
+      <div class="list-summary">
+        <span>${list.length} ${list.length === 1 ? 'prodotto' : 'prodotti'}</span>
+        <button class="btn text small" type="button" data-action="add-manual">+ Inserisci a mano</button>
+      </div>
+      <div class="product-list">
+        ${list.map(p => `
+          <article class="product-card ${p.qty === 0 ? 'depleted' : ''}" data-id="${esc(p.id)}">
+            ${productVisual(p)}
+            <div class="product-body" data-action="edit" data-id="${esc(p.id)}">
+              <span class="product-title">${esc(p.name)}</span>
+              <div class="product-sub">
+                <span>${esc(p.location)}</span>
+                <span>·</span>
+                <span>${esc(p.category)}</span>
+              </div>
+              <div class="product-badges">
+                ${p.qty === 0 ? `<span class="badge neutral">Esaurito</span>` : expiryBadge(p)}
+              </div>
+            </div>
+            <div class="card-right">
+              <div class="stepper" role="group" aria-label="Quantità ${esc(p.name)}">
+                <button class="step-btn" type="button" data-action="step-down" data-id="${esc(p.id)}" aria-label="Consuma ${esc(p.name)}" ${p.qty <= 0 ? 'disabled' : ''}>${icon('minus')}</button>
+                <span class="step-val">${num(p.qty)}<small>${esc(p.unit)}</small></span>
+                <button class="step-btn" type="button" data-action="step-up" data-id="${esc(p.id)}" aria-label="Aggiungi ${esc(p.name)}">${icon('plus')}</button>
+              </div>
+              ${p.qty === 0 ? `<div class="depleted-actions">
+                <button class="btn soft small" type="button" data-action="to-shopping" data-id="${esc(p.id)}">+ Spesa</button>
+                <button class="btn secondary small" type="button" data-action="quick-delete" data-id="${esc(p.id)}" aria-label="Elimina ${esc(p.name)}">${icon('trash')}</button>
+              </div>` : ''}
+            </div>
+          </article>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  function shoppingView() {
+    const pending = state.shopping.filter(i => !i.done);
+    const done = state.shopping.filter(i => i.done);
+    return `
+      <div class="page-header">
+        <div>
+          <h1>Lista della spesa</h1>
+          <p>${pending.length ? `${pending.length} ${pending.length === 1 ? 'articolo da comprare' : 'articoli da comprare'}` : 'Tutto segnato!'}</p>
+        </div>
+      </div>
+
+      <form id="quick-shopping-form" class="quick-shop-form">
+        <input name="name" maxlength="120" autocomplete="off" placeholder="Cosa comprare? (es. Pane…)" aria-label="Nuovo articolo della spesa" required>
+        <button class="btn" type="submit">${icon('plus')} Aggiungi</button>
+      </form>
+
+      <div class="shop-toolbar">
+        <button class="btn secondary small" type="button" data-action="shortages">${icon('box')} Aggiungi prodotti finiti</button>
+        ${done.length ? `<button class="btn secondary small" type="button" data-action="clear-done">${icon('check')} Rimuovi acquistati (${done.length})</button>` : ''}
+      </div>
+
+      <section class="panel">
+        <div class="panel-head"><h2>${icon('cart')} Da acquistare (${pending.length})</h2></div>
+        ${pending.length ? pending.map(shopRow).join('') : `<div class="panel-body" style="color:var(--muted);font-size:14px">Nessun articolo in attesa.</div>`}
+      </section>
+
+      ${done.length ? `<section class="panel">
+        <div class="panel-head"><h2>${icon('check')} Nel carrello (${done.length})</h2></div>
+        ${done.map(shopRow).join('')}
+      </section>` : ''}
+    `;
+  }
+
+  function shopRow(item) {
+    return `<div class="shopping-row ${item.done ? 'done' : ''}">
+      <button class="check ${item.done ? 'checked' : ''}" type="button" data-action="toggle-shopping" data-id="${esc(item.id)}" role="checkbox" aria-checked="${item.done}" aria-label="${item.done ? 'Segna da comprare' : 'Segna comprato'}: ${esc(item.name)}">
+        ${item.done ? icon('check') : ''}
+      </button>
+      <div style="flex:1;min-width:0">
+        <span class="product-title">${esc(item.name)}</span>
+        <small style="color:var(--muted);font-size:12px">${num(item.qty)} ${esc(item.unit)}</small>
+      </div>
+      <button class="icon-btn" type="button" data-action="delete-shopping" data-id="${esc(item.id)}" aria-label="Rimuovi ${esc(item.name)}">${icon('trash')}</button>
+    </div>`;
+  }
+
+  function settingsView() {
+    const online = state.settings.onlineLookup !== false;
+    return `
+      <div class="page-header">
+        <div>
+          <h1>Impostazioni</h1>
+          <p>Tutto salvato sul telefono, senza alcun server esterno da gestire.</p>
+        </div>
+      </div>
+
+      <section class="panel">
+        <div class="panel-head"><h2>${icon('camera')} Riconoscimento e scadenze</h2></div>
+        <div class="panel-body" style="padding-top:6px;padding-bottom:6px">
+          <div class="setting-line">
+            <div>
+              <strong>Catalogo online gratuito (Open Food Facts)</strong>
+              <small>Usa internet dal telefono per migliorare nome e categoria senza chiavi API. Se sei offline usa solo l’OCR locale.</small>
+            </div>
+            <button class="toggle ${online ? 'on' : ''}" type="button" role="switch" aria-checked="${online}" data-action="toggle-online" aria-label="Attiva ricerca Open Food Facts"></button>
+          </div>
+          <div class="setting-line">
+            <div>
+              <strong>Preavviso scadenze</strong>
+              <small>Evidenzia i prodotti che scadono entro questi giorni.</small>
+            </div>
+            <select id="warning-days" aria-label="Giorni di preavviso scadenze">
+              ${[1, 3, 7, 14].map(n => `<option value="${n}" ${n === state.settings.warningDays ? 'selected' : ''}>${n} ${n === 1 ? 'giorno' : 'giorni'}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2>${icon('download')} Backup sul dispositivo</h2></div>
+        <div class="panel-body">
+          <p style="margin:0;font-size:13px;color:var(--muted)">Esporta o ripristina la tua dispensa (inclusi miniature, scadenze e spesa) in un singolo file JSON sul telefono.</p>
+          <div class="settings-actions">
+            <button class="btn" type="button" data-action="export">${icon('download')} Esporta backup</button>
+            <button class="btn secondary" type="button" data-action="import">${icon('upload')} Importa backup</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2>${icon('reset')} Gestione archivio</h2></div>
+        <div class="panel-body">
+          <p style="margin:0;font-size:13px;color:var(--muted)">Prodotti salvati: <b>${state.products.length}</b> · Prodotti imparati: <b>${(state.catalog || []).length}</b></p>
+          <div class="settings-actions">
+            ${!state.products.length ? `<button class="btn secondary" type="button" data-action="demo">Carica dispensa di esempio</button>` : ''}
+            <button class="btn secondary" type="button" data-action="reset">${icon('trash')} Svuota tutti i dati</button>
+          </div>
+        </div>
+      </section>
+
+      <p style="font-size:12px;color:var(--muted);text-align:center;margin:20px 0 8px">
+        Grocy Locale 2.0 · Dati salvati in locale sul telefono · Nessun server richiesto
+      </p>
+    `;
+  }
+
+  function render() {
+    renderNav();
+    const views = { pantry: pantryView, shopping: shoppingView, settings: settingsView };
+    $('#main').innerHTML = (views[page] || pantryView)();
+    renderInventory();
+    if (loadError) {
+      $('#main').insertAdjacentHTML('afterbegin', `<div class="panel" style="border-color:var(--red-ink);padding:14px 16px;margin-bottom:14px">
+        <strong>Archivio non leggibile: dati non sovrascritti.</strong>
+        <p style="margin:4px 0 0;font-size:13px;color:var(--muted)">Esporta il backup originale prima di ripristinare o svuotare i dati dalle impostazioni.</p>
+      </div>`);
+    }
+    document.querySelectorAll('[data-icon]').forEach(el => { el.innerHTML = icon(el.dataset.icon); });
+  }
+
+  function modal(title, body) {
+    $('#modal-content').innerHTML = `
+      <div class="modal-header">
+        <h2 id="modal-title">${title}</h2>
+        <button class="icon-btn" type="button" data-action="close" aria-label="Chiudi">${icon('close')}</button>
+      </div>
+      <div class="modal-body">${body}</div>
+    `;
+    if (!$('#modal').open) $('#modal').showModal();
+  }
+
+  function closeModal() {
+    if ($('#modal').open) $('#modal').close();
+  }
+
+  function confirmModal(title, description, action, label = 'Conferma', danger = false) {
+    modal(title, `
+      <p style="margin:0 0 18px;font-size:14px;color:var(--muted)">${description}</p>
+      <div class="button-row">
+        <button class="btn secondary" type="button" data-action="close">Annulla</button>
+        <button class="btn ${danger ? 'danger' : ''}" type="button" id="confirm-button">${label}</button>
+      </div>
+    `);
+    $('#confirm-button').addEventListener('click', () => action());
+  }
+
+  function exportBackup() {
+    try {
+      const raw = loadError ? (native ? Android.loadState() : localStorage.getItem(STORAGE)) : JSON.stringify(state, null, 2);
+      if (!raw) throw new Error('Nessun dato da esportare.');
+      if (native) {
+        Android.exportBackup(raw);
+      } else {
+        const url = URL.createObjectURL(new Blob([raw], { type: 'application/json' }));
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `grocy-locale-${G.today()}.json`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 30000);
+        toast('Backup scaricato.');
+      }
+    } catch (e) {
+      toast('Esportazione non riuscita: ' + e.message);
+    }
+  }
+
+  function importBackup(raw) {
+    try {
+      if (typeof raw !== 'string' || raw.length > MAX_ARCHIVE) throw new Error('File troppo grande (massimo 12 MB).');
+      const next = G.validate(JSON.parse(raw));
+      confirmModal(
+        'Ripristinare questo backup?',
+        `Contiene <b>${next.products.length}</b> prodotti e <b>${next.shopping.length}</b> articoli della spesa. Sostituirà i dati attuali.`,
+        () => {
+          try {
+            loadError = false;
+            persist(next);
+            closeModal();
+            render();
+            toast('Backup ripristinato.');
+          } catch (e) {
+            loadError = true;
+            toast(e.message);
+          }
+        },
+        'Ripristina backup',
+        true
+      );
+    } catch (e) {
+      toast(e instanceof SyntaxError ? 'Il file non contiene JSON valido.' : e.message);
+    }
+  }
+
+  function saveProductRecord(product, isNew) {
+    const clean = {
+      id: product.id || G.id(),
+      name: String(product.name || '').trim(),
+      qty: Number(product.qty),
+      min: Number.isFinite(Number(product.min)) && Number(product.min) >= 0 ? Number(product.min) : 0,
+      unit: G.UNITS.includes(product.unit) ? product.unit : 'pz',
+      category: G.CATEGORIES.includes(product.category) ? product.category : 'Altro',
+      location: G.LOCATIONS.includes(product.location) ? product.location : 'Dispensa',
+      expiry: String(product.expiry || '').trim(),
+      barcode: product.barcode ? B.normalize(product.barcode) : '',
+      notes: String(product.notes || '').trim()
+    };
+    if (product.thumb) clean.thumb = product.thumb;
+    if (product.scan) clean.scan = product.scan;
+    if (!clean.name) throw new Error('Inserisci il nome del prodotto.');
+    if (clean.expiry && !G.validDate(clean.expiry)) throw new Error('Data di scadenza non valida.');
+
+    const test = G.blank();
+    test.products = [clean];
+    const validated = G.validate(test).products[0];
+
+    const ok = update(s => {
+      const idx = s.products.findIndex(x => x.id === validated.id);
+      if (idx < 0) s.products.push(validated);
+      else s.products[idx] = validated;
+      G.learnCatalog(s, validated);
+      G.log(s, idx < 0 || isNew ? 'add' : 'edit', validated.name, idx < 0 ? `Aggiunto (${num(validated.qty)} ${validated.unit})` : 'Prodotto aggiornato');
+    }, isNew ? `${validated.name} salvato in ${validated.location.toLowerCase()}.` : 'Prodotto aggiornato.');
+
+    return ok ? validated : null;
+  }
+
+  window.onNativeBackup = importBackup;
+  window.onNativeResult = (ok, message) => toast(message);
+  window.handleAndroidBack = () => {
+    if ($('#modal').open) { closeModal(); return true; }
+    if (page !== 'pantry') { navigate('pantry'); return true; }
+    return false;
+  };
+
+  document.addEventListener('click', e => {
+    const el = e.target.closest('[data-action]');
+    if (!el) return;
+    const d = el.dataset;
+    switch (d.action) {
+      case 'navigate': navigate(d.page); break;
+      case 'close': closeModal(); break;
+      case 'place': placeFilter = d.place; render(); break;
+      case 'cat': categoryFilter = d.cat || ''; renderInventory(); document.querySelectorAll('.cat-chip').forEach(c => c.classList.toggle('active', (c.dataset.cat || '') === categoryFilter)); break;
+      case 'clear-filters': placeFilter = 'all'; categoryFilter = ''; query = ''; render(); break;
+      case 'add-manual': if (window.GrocyScanUI) window.GrocyScanUI.openManual({ location: G.LOCATIONS.includes(placeFilter) ? placeFilter : '' }); break;
+      case 'edit': {
+        const prod = state.products.find(p => p.id === d.id);
+        if (prod && window.GrocyScanUI) window.GrocyScanUI.openEdit(prod);
+        break;
+      }
+      case 'step-up': {
+        const prod = state.products.find(p => p.id === d.id);
+        if (!prod) break;
+        const delta = stepSize(prod);
+        update(s => G.changeQuantity(s, prod.id, delta, 'stock'));
+        break;
+      }
+      case 'step-down': {
+        const prod = state.products.find(p => p.id === d.id);
+        if (!prod || prod.qty <= 0) break;
+        const delta = Math.min(prod.qty, stepSize(prod));
+        update(s => G.changeQuantity(s, prod.id, -delta, 'consume'));
+        break;
+      }
+      case 'to-shopping': {
+        const prod = state.products.find(p => p.id === d.id);
+        if (!prod) break;
+        update(s => {
+          const exists = s.shopping.some(i => !i.done && i.name.toLocaleLowerCase('it') === prod.name.toLocaleLowerCase('it'));
+          if (!exists) s.shopping.push({ id: G.id(), name: prod.name, qty: 1, unit: prod.unit === 'g' || prod.unit === 'ml' ? 'pz' : prod.unit, done: false });
+        }, `${prod.name} aggiunto alla lista della spesa.`);
+        break;
+      }
+      case 'quick-delete': {
+        const prod = state.products.find(p => p.id === d.id);
+        if (!prod) break;
+        update(s => {
+          s.products = s.products.filter(x => x.id !== prod.id);
+          G.log(s, 'delete', prod.name, 'Rimosso dalla dispensa');
+        }, `${prod.name} rimosso.`);
+        break;
+      }
+      case 'delete-product': {
+        const prod = state.products.find(p => p.id === d.id);
+        if (!prod) break;
+        confirmModal('Eliminare il prodotto?', `Vuoi rimuovere <b>${esc(prod.name)}</b> dalla dispensa?`, () => {
+          if (update(s => {
+            s.products = s.products.filter(x => x.id !== prod.id);
+            G.log(s, 'delete', prod.name, 'Rimosso dalla dispensa');
+          }, 'Prodotto eliminato.')) closeModal();
+        }, 'Elimina', true);
+        break;
+      }
+      case 'demo':
+        if (state.products.length) toast('La dispensa contiene già dei prodotti.');
+        else update(s => Object.assign(s, G.demo()), 'Dispensa di esempio caricata.');
+        break;
+      case 'shortages': {
+        let n = 0;
+        if (update(s => { n = G.addShortages(s); })) {
+          toast(n ? `${n} ${n === 1 ? 'prodotto aggiunto' : 'prodotti aggiunti'} alla spesa.` : 'Nessun prodotto finito o sotto scorta.');
+        }
+        break;
+      }
+      case 'toggle-shopping':
+        update(s => { const item = s.shopping.find(i => i.id === d.id); if (item) item.done = !item.done; });
+        break;
+      case 'delete-shopping':
+        update(s => { s.shopping = s.shopping.filter(i => i.id !== d.id); }, 'Articolo rimosso.');
+        break;
+      case 'clear-done':
+        update(s => { s.shopping = s.shopping.filter(i => !i.done); }, 'Acquistati rimossi.');
+        break;
+      case 'toggle-online':
+        update(s => { s.settings.onlineLookup = s.settings.onlineLookup === false; },
+          state.settings.onlineLookup === false ? 'Ricerca Open Food Facts attivata.' : 'Modalità solo offline attivata.');
+        break;
+      case 'export': exportBackup(); break;
+      case 'import':
+        if (native) Android.importBackup();
+        else { $('#import-file').value = ''; $('#import-file').click(); }
+        break;
+      case 'reset':
+        confirmModal('Svuotare tutta la dispensa?', 'Cancellerà tutti i prodotti e la lista della spesa sul telefono. Esporta prima un backup se vuoi conservarli.', () => {
+          try {
+            loadError = false;
+            persist(G.blank());
+            closeModal();
+            render();
+            toast('Dispensa svuotata.');
+          } catch (err) {
+            loadError = true;
+            toast(err.message);
+          }
+        }, 'Elimina tutti i dati', true);
+        break;
+    }
+  });
+
+  document.addEventListener('input', e => {
+    if (e.target.id === 'search') {
+      query = e.target.value;
+      renderInventory();
+    }
+  });
+
+  document.addEventListener('change', async e => {
+    if (e.target.id === 'sort') {
+      sort = e.target.value;
+      renderInventory();
+    }
+    if (e.target.id === 'warning-days') {
+      update(s => { s.settings.warningDays = Number(e.target.value); }, 'Preavviso aggiornato.');
+    }
+    if (e.target.id === 'import-file') {
+      const f = e.target.files && e.target.files[0];
+      if (!f) return;
+      if (f.size > MAX_ARCHIVE) { toast('Il backup supera la dimensione massima.'); return; }
+      try { importBackup(await f.text()); } catch { toast('Impossibile leggere il file.'); }
+    }
+  });
+
+  document.addEventListener('submit', e => {
+    if (e.target.id === 'quick-shopping-form') {
+      e.preventDefault();
+      const input = e.target.querySelector('[name="name"]');
+      const name = (input && input.value || '').trim();
+      if (!name) return;
+      if (update(s => { s.shopping.push({ id: G.id(), name, qty: 1, unit: 'pz', done: false }); }, `${name} aggiunto alla spesa.`)) {
+        input.value = '';
+      }
+    }
+  });
+
+  window.addEventListener('hashchange', () => {
+    const h = location.hash.slice(1);
+    if (h && h !== page) navigate(h);
+  });
+
+  $('#modal').addEventListener('click', e => {
+    if (e.target === $('#modal')) {
+      const r = e.target.getBoundingClientRect();
+      if (e.clientY < r.top || e.clientY > r.bottom || e.clientX < r.left || e.clientX > r.right) closeModal();
+    }
+  });
+
+  window.GrocyUI = {
+    state: () => state,
+    update,
+    persist,
+    saveProductRecord,
+    toast,
+    modal,
+    closeModal,
+    icon,
+    esc,
+    num,
+    fmtDate,
+    food,
+    foodMeta,
+    locIcon,
+    navigate
+  };
+
+  const initHash = location.hash.slice(1);
+  if (initHash === 'shopping' || initHash === 'settings') page = initHash;
+  else if (initHash === 'expiry') { page = 'pantry'; placeFilter = 'expiring'; }
+  render();
+})();

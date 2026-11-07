@@ -11,13 +11,27 @@
   function blank() { return { format:'grocy-locale', version:1, products:[], shopping:[], history:[], settings:{ warningDays:3 }, updatedAt:new Date().toISOString() }; }
   function text(s, max=120) { if(typeof s!=='string' || s.length>max) throw new Error('Testo non valido nel backup.'); return s; }
   function quantity(n, positive=false) { if(typeof n!=='number'||!Number.isFinite(n)||n<0||n>999999||(positive&&n===0)) throw new Error('Quantità non valida.'); return n; }
+  // Parole chiave imparate dalle due foto (facoltative, restano piccole).
+  function scanInfo(raw) {
+    if (!raw || typeof raw !== 'object' || !Array.isArray(raw.keywords)) return null;
+    const keywords = raw.keywords.slice(0, 20)
+      .map(k => typeof k === 'string' ? k.toUpperCase().replace(/[^A-ZÀ-Ý0-9'’. -]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 20) : '')
+      .filter(k => k.length >= 3);
+    if (!keywords.length) return null;
+    const scan = { keywords };
+    if (typeof raw.at === 'string' && Number.isFinite(Date.parse(raw.at))) scan.at = raw.at;
+    return scan;
+  }
   function validate(s) {
     if(!s || s.format!=='grocy-locale' || s.version!==1 || !Array.isArray(s.products) || !Array.isArray(s.shopping) || !Array.isArray(s.history) || s.products.length>5000 || s.shopping.length>5000 || s.history.length>200) throw new Error('Questo non è un backup Grocy Locale v1 valido.');
     const result=blank(), ids=new Set();
     function checkId(v) { text(v,80); if(!/^[a-zA-Z0-9_-]{1,80}$/.test(v)||ids.has(v)) throw new Error('Identificativi duplicati o non validi.'); ids.add(v); return v; }
     result.products=s.products.map(p=>{
       if(!p || !text(p.name).trim() || !CATEGORIES.includes(p.category) || !LOCATIONS.includes(p.location) || !UNITS.includes(p.unit) || (p.expiry && !validDate(p.expiry))) throw new Error('Prodotto non valido nel backup.');
-      return {id:checkId(p.id),name:p.name.trim(),qty:quantity(p.qty),min:quantity(p.min),unit:p.unit,category:p.category,location:p.location,expiry:text(p.expiry,10),barcode:text(p.barcode,80),notes:text(p.notes,1000)};
+      const product={id:checkId(p.id),name:p.name.trim(),qty:quantity(p.qty),min:quantity(p.min),unit:p.unit,category:p.category,location:p.location,expiry:text(p.expiry,10),barcode:text(p.barcode,80),notes:text(p.notes,1000)};
+      const scan=scanInfo(p.scan);
+      if(scan)product.scan=scan;
+      return product;
     });
     result.shopping=s.shopping.map(p=>{ if(!p||!text(p.name).trim()||!UNITS.includes(p.unit)||typeof p.done!=='boolean') throw new Error('Lista della spesa non valida.'); return {id:checkId(p.id),name:p.name.trim(),qty:quantity(p.qty,true),unit:p.unit,done:p.done}; });
     result.history=s.history.map(h=>{ if(!h||!['add','consume','edit','delete','stock'].includes(h.type)||!Number.isFinite(Date.parse(h.at))) throw new Error('Storico non valido.'); return {name:text(h.name),type:h.type,at:h.at,detail:text(h.detail,160)}; });

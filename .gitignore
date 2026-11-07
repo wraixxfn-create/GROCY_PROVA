@@ -1,4 +1,6 @@
 .tools/
+.cache/
+android/app/src/main/assets/vendor/
 node_modules/
 build/
 dist/

@@ -194,8 +194,10 @@
     return threshold;
   }
 
-  // rows: {width, height, pixel(x, y)} — restituisce il codice o null.
-  function decodeRows(rows, rowStep) {
+  // rows: {width, height, pixel(x, y)} — somma i codici trovati riga per riga
+  // in `votes`. Un codice stampato compare su molte righe consecutive; un
+  // falso positivo dovuto al testo, di solito, su una sola.
+  function decodeRows(rows, rowStep, votes) {
     const histogram = new Uint32Array(256);
     const values = new Uint8Array(rows.width);
     for (let y = 0; y < rows.height; y += rowStep) {
@@ -219,7 +221,7 @@
       }
       runs.push({black, w: width});
       const code = decodeRuns(runs);
-      if (code) return code;
+      if (code) votes.set(code, (votes.get(code) || 0) + 1);
     }
     return null;
   }
@@ -227,9 +229,12 @@
   /*
    * data: Uint8Array/Uint8ClampedArray in scala di grigi (una voce per pixel).
    * L'etichetta può essere ruotata: si provano quattro orientamenti.
+   * options.minVotes: quante righe devono concordare sul codice (default 1,
+   * il riconoscimento da foto usa 3 per non scambiare il testo per un codice).
    */
-  function decodeGray(data, width, height) {
+  function decodeGray(data, width, height, options) {
     if (!data || !(width > 0) || !(height > 0) || data.length < width * height) return null;
+    const minVotes = options && options.minVotes > 0 ? options.minVotes : 1;
     const orientations = [
       {width, height, pixel: (x, y) => data[y * width + x]},
       {width: height, height: width, pixel: (x, y) => data[(height - 1 - x) * width + y]},
@@ -238,8 +243,13 @@
     ];
     for (const rows of orientations) {
       const step = Math.max(1, Math.floor(rows.height / 320));
-      const code = decodeRows(rows, step);
-      if (code) return code;
+      const votes = new Map();
+      decodeRows(rows, step, votes);
+      let best = null, bestVotes = 0;
+      for (const [code, count] of votes) {
+        if (count > bestVotes) { best = code; bestVotes = count; }
+      }
+      if (best && bestVotes >= minVotes) return best;
     }
     return null;
   }

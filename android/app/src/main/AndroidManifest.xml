@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="it.grocyprova.offline" android:versionCode="2" android:versionName="1.1.0">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="it.grocyprova.offline" android:versionCode="3" android:versionName="1.2.0">
  <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="34"/>
  <!-- Serve solo a sapere se esiste un'app fotocamera; nessun permesso richiesto. -->
  <queries><intent><action android:name="android.media.action.IMAGE_CAPTURE"/></intent></queries>

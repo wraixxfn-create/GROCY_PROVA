@@ -178,23 +178,120 @@
 
   // ------------------------------------------------ Riconoscimento 2 foto
 
-  async function analysePackShot(shot) {
+  const letterCount = text => (String(text || '').match(/[A-Za-zÀ-ÿ]/g) || []).length;
+
+  // Punteggio di utilità di una lettura: serve a tenere il miglior tentativo
+  // quando nessuno raggiunge l'obiettivo (foto molto difficili).
+  function usefulScore(parsed, role) {
+    if (!parsed) return -1;
+    let score = 0;
+    if (role === 'pack') {
+      if (parsed.name) score += 4;
+      if (parsed.brand) score += 2;
+      if (parsed.qty) score += 1;
+      if (parsed.barcode) score += 2;
+    } else if (parsed.expiry) score += 6;
+    else if (parsed.production) score += 3;
+    return score + Math.min(3, letterCount(parsed.text) / 40);
+  }
+
+  function satisfied(parsed, role) {
+    if (!parsed) return false;
+    if (role === 'pack') return !!(parsed.name && (parsed.brand || parsed.qty || parsed.barcode));
+    return !!parsed.expiry;
+  }
+
+  /*
+   * Legge la foto con più tentativi di pre-elaborazione, dal più leggero al
+   * più spinto, e si ferma appena il testo serve allo scopo:
+   *   1. foto raddrizzata (deskew) + contrasto
+   *   2. illuminazione appiattita (riflessi, controluce, fondi scuri)
+   *   3. binarizzazione di Otsu + ingrandimento (timbri minuscoli)
+   * Per la scadenza aggiunge il ritaglio del centro; se il testo letto è
+   * quasi niente prova anche le rotazioni di 90/180/270 gradi.
+   */
+  async function readBest(shot, role, options) {
+    const opts = options || {};
+    const maxAttempts = opts.maxAttempts || 3;
+    const progress = typeof opts.progress === 'function' ? opts.progress : null;
+    const Ocr = root.GrocyOcr;
+    const attempts = [
+      { label: 'Leggo la foto…', ocr: { psm: 3, enhance: true, deskew: true } },
+      { label: 'Rileggo con luce uniforme…', ocr: { psm: 3, enhance: true, deskew: true, illum: true } },
+      { label: 'Ultimo tentativo ad alto contrasto…', ocr: { psm: 6, enhance: true, deskew: true, illum: true, binarize: true, upscale: true } }
+    ];
+
+    let collected = '';
+    let best = R().parse('', { role, checksum: B().checksum });
+    let letters = 0;
+
+    for (let i = 0; i < attempts.length && i < maxAttempts; i++) {
+      const attempt = attempts[i];
+      if (progress) progress(attempt.label);
+      let res;
+      try {
+        res = await Ocr.read(shot.gray, shot.width, shot.height, attempt.ocr);
+      } catch (e) {
+        break;
+      }
+      collected += '\n' + res.text;
+      letters = Math.max(letters, letterCount(res.text));
+
+      // La scadenza spesso è piccola e al centro: ritaglio mirato della stessa variante.
+      if (role !== 'pack' && Ocr.cropCenter) {
+        const center = Ocr.cropCenter(shot.gray, shot.width, shot.height, 0.72);
+        try {
+          const centerRead = await Ocr.read(center.gray, center.width, center.height,
+            Object.assign({}, attempt.ocr, { psm: 6, upscale: true }));
+          collected += '\n' + centerRead.text;
+          letters = Math.max(letters, letterCount(centerRead.text));
+        } catch (e) { /* il ritaglio è facoltativo */ }
+      }
+
+      const parsed = R().parse(collected, { role, checksum: B().checksum });
+      if (usefulScore(parsed, role) > usefulScore(best, role)) best = parsed;
+      if (satisfied(best, role)) return best;
+    }
+
+    // Foto quasi illeggibile e probabilmente ruotata: prova i quarti di giro.
+    if (letters < 12 && Ocr.rotate) {
+      for (const angle of [90, 180, 270]) {
+        if (progress) progress('Provo un altro orientamento…');
+        let rot;
+        try { rot = Ocr.rotate(shot.gray, shot.width, shot.height, angle); } catch (e) { break; }
+        let res;
+        try {
+          res = await Ocr.read(rot.gray, rot.width, rot.height, { psm: 3, enhance: true, deskew: true });
+        } catch (e) { break; }
+        collected += '\n' + res.text;
+        const parsed = R().parse(collected, { role, checksum: B().checksum });
+        if (usefulScore(parsed, role) > usefulScore(best, role)) best = parsed;
+        if (satisfied(best, role)) return best;
+        letters = Math.max(letters, letterCount(res.text));
+        if (letters >= 12) break;
+      }
+    }
+    return best;
+  }
+
+  async function analysePackShot(shot, progress) {
     let barcode = '';
     try { barcode = B().decodeGray(shot.gray, shot.width, shot.height, { minVotes: 3 }) || ''; } catch (e) { barcode = ''; }
 
-    let parsed = null;
-    try {
-      let read = await root.GrocyOcr.read(shot.gray, shot.width, shot.height, { psm: 3, enhance: true });
-      if (((read.text || '').match(/[A-Za-zÀ-ÿ]/g) || []).length < 3) {
-        const retry = await root.GrocyOcr.read(shot.gray, shot.width, shot.height, { psm: 11, enhance: true });
-        if ((retry.text || '').length > (read.text || '').length) read = retry;
-      }
-      parsed = R().parse(read.text, { role: 'pack', checksum: B().checksum });
-    } catch (e) {
-      parsed = R().parse('', { role: 'pack', checksum: B().checksum });
+    // Il fronte viene analizzato mentre l'utente gira la confezione: di solito
+    // bastano due passaggi, il terzo (alto contrasto) parte solo se servono.
+    const parsed = await readBest(shot, 'pack', { progress });
+    if (barcode) {
+      parsed.barcode = barcode;
+    } else {
+      // Ultima possibilità per il codice: sull'immagine con le luci appiattite.
+      try {
+        const Ocr = root.GrocyOcr;
+        const flat = Ocr.normalizeLight(shot.gray, shot.width, shot.height);
+        barcode = B().decodeGray(flat, shot.width, shot.height, { minVotes: 3 }) || '';
+        if (barcode) parsed.barcode = barcode;
+      } catch (e) { /* nessun codice: si prosegue senza */ }
     }
-
-    if (barcode) parsed.barcode = barcode;
 
     // Arricchimento online gratuito con Open Food Facts (se attivo nelle impostazioni)
     let offResult = { match: null, suggestions: [], online: false };
@@ -209,29 +306,21 @@
     return result;
   }
 
-  async function analyseExpiryShot(shot) {
+  async function analyseExpiryShot(shot, progress) {
     if (!shot) return R().parse('', { role: 'expiry', checksum: B().checksum });
 
     let barcode = '';
     try { barcode = B().decodeGray(shot.gray, shot.width, shot.height, { minVotes: 3 }) || ''; } catch (e) { barcode = ''; }
-
-    let parsed = null;
-    try {
-      // Prima lettura completa
-      const first = await root.GrocyOcr.read(shot.gray, shot.width, shot.height, { psm: 3, enhance: true });
-      parsed = R().parse(first.text, { role: 'expiry', checksum: B().checksum });
-
-      // Se la data è piccola o isolata sul retro, secondo passaggio mirato al centro con psm 6 (blocco data)
-      if (!parsed.expiry && root.GrocyOcr.cropCenter) {
-        const center = root.GrocyOcr.cropCenter(shot.gray, shot.width, shot.height, 0.72);
-        const retry = await root.GrocyOcr.read(center.gray, center.width, center.height, { psm: 6, enhance: true });
-        const retryParsed = R().parse(first.text + '\n' + retry.text, { role: 'expiry', checksum: B().checksum });
-        if (retryParsed.expiry) parsed = retryParsed;
-      }
-    } catch (e) {
-      parsed = R().parse('', { role: 'expiry', checksum: B().checksum });
+    if (!barcode) {
+      // Il codice sul retro può stare sotto un riflesso: si riprova con le luci appiattite.
+      try {
+        const Ocr = root.GrocyOcr;
+        const flat = Ocr.normalizeLight(shot.gray, shot.width, shot.height);
+        barcode = B().decodeGray(flat, shot.width, shot.height, { minVotes: 3 }) || '';
+      } catch (e) { /* nessun codice: si prosegue senza */ }
     }
 
+    const parsed = await readBest(shot, 'expiry', { progress });
     if (barcode && !parsed.barcode) parsed.barcode = barcode;
     return parsed;
   }
@@ -242,7 +331,8 @@
     if (kind === 'pack') {
       formState.thumb = shot.thumb || formState.thumb;
       packAnalysis = null;
-      packPromise = analysePackShot(shot);
+      // I messaggi di avanzamento arrivano alla schermata di lettura quando c'è.
+      packPromise = analysePackShot(shot, updateReadingProgress);
 
       if (mode === 'edit' || returnToConfirm) {
         syncFormFromDom();
@@ -271,7 +361,7 @@
 
     const [packRes, expiryParsed] = await Promise.all([
       onlyUpdatingDate ? Promise.resolve(packAnalysis) : (packPromise || Promise.resolve(null)),
-      analyseExpiryShot(shot)
+      analyseExpiryShot(shot, updateReadingProgress)
     ]);
 
     if (onlyUpdatingDate) {
@@ -471,9 +561,15 @@
       <div class="reading-box">
         <div class="spinner" aria-hidden="true"></div>
         <h3 style="margin:0 0 6px;font-size:17px">${esc(message || 'Sto leggendo le foto…')}</h3>
-        <p style="margin:0;font-size:13px;color:var(--muted)">Elaborazione direttamente sul telefono, nessun server esterno.</p>
+        <p id="reading-detail" style="margin:0;font-size:13px;color:var(--muted)">Elaborazione direttamente sul telefono, nessun server esterno.</p>
       </div>
     `);
+  }
+
+  // Aggiorna solo la riga di stato della schermata di lettura, senza ridisegnare il modal.
+  function updateReadingProgress(message) {
+    const el = doc.getElementById('reading-detail');
+    if (el && message) el.textContent = message;
   }
 
   function syncFormFromDom() {

@@ -186,7 +186,7 @@ public final class MainActivity extends Activity {
                     conn.setReadTimeout(4200);
                     conn.setRequestMethod("GET");
                     conn.setRequestProperty("Accept", "application/json");
-                    conn.setRequestProperty("User-Agent", "GrocyLocale/2.0 (Android; local-app)");
+                    conn.setRequestProperty("User-Agent", "GrocyLocale/2.1 (Android; local-app)");
                     int status = conn.getResponseCode();
                     if (status < 200 || status >= 300) throw new Exception("HTTP " + status);
                     InputStream in = conn.getInputStream();

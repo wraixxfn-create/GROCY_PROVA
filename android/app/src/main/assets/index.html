@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#194d3f">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Grocy Locale · La tua dispensa</title><link rel="icon" href="icon.svg" type="image/svg+xml"><link rel="stylesheet" href="style.css">
+<script src="model.js" defer></script><script src="app.js" defer></script>
+</head>
+<body>
+<aside class="sidebar"><a class="brand" href="#home" aria-label="Grocy Locale, panoramica"><span class="brand-mark" data-icon="leaf"></span><span>grocy<span class="brand-sub">LOCALE</span></span></a><div class="sidebar-label">LA TUA CASA, ORGANIZZATA</div><nav class="desktop-nav" aria-label="Navigazione principale"></nav><div class="sidebar-bottom"><span class="local-dot"></span><div><strong>Solo sul tuo dispositivo</strong><small>Nessun account. Nessun cloud.</small></div><span data-icon="shield"></span></div></aside>
+<div class="workspace"><header class="topbar"><a class="mobile-brand" href="#home"><span data-icon="leaf"></span>grocy <small>LOCALE</small></a><span class="breadcrumb">La mia casa <span>/</span> <b id="breadcrumb">Panoramica</b></span><div class="topbar-right"><span class="offline-label"><span class="local-dot"></span>100% offline</span><button class="avatar" data-action="navigate" data-page="settings" aria-label="Apri impostazioni">G</button></div></header>
+<main id="main" tabindex="-1"></main>
+<footer class="desktop-footer"><span>Una dispensa più ordinata, un po’ meno sprechi.</span><span>Grocy Locale <b>1.0</b></span></footer></div>
+<nav class="bottom-nav" aria-label="Navigazione mobile"></nav>
+<dialog id="modal" aria-labelledby="modal-title"><div id="modal-content"></div></dialog>
+<div id="toast" role="status" aria-live="polite"></div><input type="file" id="import-file" accept=".json,application/json" hidden>
+</body></html>

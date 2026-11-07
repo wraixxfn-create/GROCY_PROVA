@@ -37,14 +37,14 @@ if [[ -n "${BT:-}" ]]; then
   KEY="${GROCY_KEYSTORE:-$TOOLS/grocy-local.jks}"
   if [[ ! -f "$KEY" ]]; then mkdir -p "$TOOLS"; keytool -genkeypair -keystore "$KEY" -storepass android -keypass android -alias grocy -dname 'CN=Grocy Locale Local Build' -keyalg RSA -keysize 2048 -validity 10000; fi
   "$BT/zipalign" -f 4 "$BUILD/unsigned.apk" "$BUILD/aligned.apk"
-  "$BT/apksigner" sign --ks "$KEY" --ks-pass pass:android --ks-key-alias grocy --out downloads/grocy-locale-v1.0.0.apk "$BUILD/aligned.apk"
-  "$BT/apksigner" verify --verbose downloads/grocy-locale-v1.0.0.apk
+  "$BT/apksigner" sign --ks "$KEY" --ks-pass pass:android --ks-key-alias grocy --out downloads/grocy-locale-v1.1.0.apk "$BUILD/aligned.apk"
+  "$BT/apksigner" verify --verbose downloads/grocy-locale-v1.1.0.apk
 else
   # The signer creates a standard debug signing certificate (not a Play Store release).
   rm -rf "$BUILD/signed"
   "$JAVA" -jar "$TOOLS/uber-apk-signer.jar" --apks "$BUILD/unsigned.apk" --out "$BUILD/signed"
-  cp "$BUILD/signed/unsigned-aligned-debugSigned.apk" downloads/grocy-locale-v1.0.0.apk
-  "$JAVA" -jar "$TOOLS/uber-apk-signer.jar" --apks downloads/grocy-locale-v1.0.0.apk --onlyVerify
+  cp "$BUILD/signed/unsigned-aligned-debugSigned.apk" downloads/grocy-locale-v1.1.0.apk
+  "$JAVA" -jar "$TOOLS/uber-apk-signer.jar" --apks downloads/grocy-locale-v1.1.0.apk --onlyVerify
 fi
-(cd downloads && sha256sum grocy-locale-v1.0.0.apk > SHA256SUMS.txt)
-echo "APK pronto: downloads/grocy-locale-v1.0.0.apk"
+(cd downloads && sha256sum grocy-locale-v1.1.0.apk > SHA256SUMS.txt)
+echo "APK pronto: downloads/grocy-locale-v1.1.0.apk"

@@ -4,9 +4,9 @@ Versione mobile **autonoma**, in italiano, ispirata a [Grocy](https://github.com
 
 ## Installa l’APK dal telefono
 
-**[Scarica Grocy Locale 1.0.0](downloads/grocy-locale-v1.0.0.apk)**
+**[Scarica Grocy Locale 1.1.0](downloads/grocy-locale-v1.1.0.apk)**
 
-1. Scarica il file `grocy-locale-v1.0.0.apk` sul telefono Android.
+1. Scarica il file `grocy-locale-v1.1.0.apk` sul telefono Android.
 2. Aprilo da Download. Se Android lo richiede, autorizza **Installa app sconosciute** per il browser o il gestore file usato. Puoi revocare questa autorizzazione dopo l’installazione.
 3. Tocca **Installa** e poi **Apri**. È richiesta una versione recente di **Android System WebView**.
 4. Aggiungi il primo prodotto oppure carica, facoltativamente, una dispensa dimostrativa.
@@ -15,12 +15,15 @@ Versione mobile **autonoma**, in italiano, ispirata a [Grocy](https://github.com
 
 L’APK è una **prima build per installazione manuale**, firmata con certificato di sviluppo. Firma v2/v3 e allineamento verificati. Non è stata eseguita una prova su telefono fisico o emulatore Android: i test automatici riguardano la logica e l’interfaccia web, non sostituiscono un collaudo Android.
 
+La versione 1.1 aggiunge l’aggiunta dei prodotti leggendo il codice a barre dell’etichetta con la fotocamera (o da una foto, nell’anteprima web).
+
 Il checksum è in [`downloads/SHA256SUMS.txt`](downloads/SHA256SUMS.txt). Nell’anteprima web c’è anche un pulsante **Scarica APK**, servito con MIME Android e intestazione di download.
 
 ## Funzioni incluse
 
 - Panoramica con scorte, scadenze imminenti, scorte minime e articoli da acquistare.
 - Inserimento, modifica e rimozione dei prodotti.
+- **Aggiunta con il codice a barre dell’etichetta**: si scatta una foto al codice e l’app lo riconosce sul dispositivo (EAN-13, UPC-A, EAN-8), oppure lo si digita. Se il codice è già associato a un prodotto, l’app propone subito il rifornimento invece di creare un doppione.
 - Quantità frazionarie e unità `pz`, `kg`, `g`, `l`, `ml`, `conf`.
 - Consumi e rifornimenti, senza quantità negative.
 - Tre luoghi: dispensa, frigorifero, congelatore.
@@ -33,7 +36,9 @@ Il checksum è in [`downloads/SHA256SUMS.txt`](downloads/SHA256SUMS.txt). Nell�
 
 ### Limiti intenzionali della prima versione
 
-- Niente scansione con fotocamera: i codici a barre si inseriscono manualmente e sono ricercabili; non vengono interrogati cataloghi online.
+- La scansione usa l’app fotocamera già presente su Android: non c’è un’anteprima dentro l’app e non viene richiesto il permesso `CAMERA`. Sono supportati solo EAN-13, UPC-A ed EAN-8, non QR o Code 128.
+- Il codice non dice *cosa* contiene la confezione: nome, scadenza e categoria si inseriscono o confermano a mano. Nessun catalogo online, nessuna ricerca per marca.
+- La foto dell’etichetta non viene salvata: resta nella cache privata dell’app solo il tempo della lettura e viene eliminata subito dopo.
 - Niente ricette, faccende, batterie, attrezzature, prezzi o report completi di Grocy.
 - Nessuna sincronizzazione, nessun account, nessuna notifica in background.
 - I backup del Grocy originale **non sono compatibili**: il formato è `grocy-locale`, versione 1.
@@ -43,7 +48,9 @@ Il checksum è in [`downloads/SHA256SUMS.txt`](downloads/SHA256SUMS.txt). Nell�
 
 ## Dati e privacy
 
-Nell’APK lo stato JSON è salvato nella memoria privata dell’app (`SharedPreferences`), non su un server. L’APK **non dichiara alcun permesso**, incluso `INTERNET`. Il WebView carica esclusivamente risorse incluse nell’APK; i caricamenti di rete e le navigazioni esterne sono bloccati. Non ci sono CDN, font remoti, analytics o dipendenze di rete a runtime.
+Nell’APK lo stato JSON è salvato nella memoria privata dell’app (`SharedPreferences`), non su un server. L’APK **non dichiara alcun permesso**, incluso `INTERNET` e `CAMERA`. Il WebView carica esclusivamente risorse incluse nell’APK; i caricamenti di rete e le navigazioni esterne sono bloccati. Non ci sono CDN, font remoti, analytics o dipendenze di rete a runtime.
+
+La lettura del codice a barre avviene interamente sul telefono: l’app apre l’app fotocamera di sistema tramite un’intenzione Android, riceve lo scatto in un file temporaneo nella propria cache privata, lo converte in una matrice di grigi e lo elimina subito dopo la lettura. L’immagine non viene mai allegata alla dispensa, non viene inviata altrove e non finisce nei backup. Nell’anteprima web la foto viene letta nello stesso modo dal browser e non viene caricata sul server.
 
 **Disinstallare l’app o cancellarne i dati elimina la dispensa. Esporta prima un backup.** Il backup non è cifrato: scegli tu dove conservarlo. Il selettore di documenti di Android può mostrare anche provider cloud del telefono, ma l’app non li usa autonomamente.
 
@@ -66,12 +73,12 @@ Il server di anteprima serve solo file statici e l’APK; non riceve e non memor
 ## Test
 
 ```sh
-npm test              # 12 test della logica, solo Node
+npm test              # 19 test della logica e del lettore di codici, solo Node
 npm start             # in un altro terminale
 npm run test:browser  # test end-to-end Chromium, Linux x86_64
 ```
 
-I test browser coprono interfaccia mobile/desktop, aggiunta prodotti, escaping HTML, consumi frazionari, ricerca, scorte, lista della spesa, persistenza dopo reload, backup/ripristino, azzeramento e caricamento `file://` con bridge Android simulato. Gli screenshot di verifica finiscono in `build/screenshots/`, escluso da Git. Le dipendenze di test non sono incluse nell’APK.
+I test browser coprono interfaccia mobile/desktop, aggiunta prodotti, escaping HTML, codici a barre (inserimento manuale, doppioni e lettura da una foto), consumi frazionari, ricerca, scorte, lista della spesa, persistenza dopo reload, backup/ripristino, azzeramento e caricamento `file://` con bridge Android simulato. Gli screenshot di verifica finiscono in `build/screenshots/`, escluso da Git. Le dipendenze di test non sono incluse nell’APK.
 
 ## Ricompilazione con Android SDK (consigliata)
 
@@ -105,9 +112,10 @@ Il bootstrap usa versioni fissate di runtime Java, compiler Java 8, `aapt2`, stu
 
 ```text
 android/app/src/main/
-  AndroidManifest.xml                  # nessun permesso di rete o storage
-  java/it/grocyprova/offline/           # WebView, persistenza e file picker nativi
-  assets/                             # interfaccia HTML/CSS/JS e modello dati
+  AndroidManifest.xml                  # nessun permesso di rete, storage o fotocamera
+  java/it/grocyprova/offline/           # WebView, persistenza, file picker e scatto nativi
+  assets/                             # interfaccia HTML/CSS/JS, modello dati
+  assets/barcode.js                   # lettore EAN-13/UPC-A/EAN-8, nessuna libreria
   res/                                # tema e icona vettoriale
 scripts/                              # anteprima, bootstrap e build APK
 tests/                                # test unitari e browser

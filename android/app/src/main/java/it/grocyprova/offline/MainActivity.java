@@ -2,10 +2,15 @@ package it.grocyprova.offline;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.content.ClipData;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
+import android.provider.MediaStore;
+import android.util.Base64;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
@@ -24,8 +29,10 @@ import org.json.JSONObject;
 public final class MainActivity extends Activity {
     private WebView web;
     private SharedPreferences prefs;
-    private static final int EXPORT = 100, IMPORT = 101;
+    private static final int EXPORT = 100, IMPORT = 101, SCAN = 102;
     private static final int MAX_BYTES = 8000000;
+    private static final int SCAN_MAX_SIDE = 1600;
+    private boolean scanning = false;
 
     @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
     @Override public void onCreate(Bundle savedInstanceState) {
@@ -81,6 +88,24 @@ public final class MainActivity extends Activity {
                 } catch (Exception e) { prefs.edit().remove("pendingExport").apply(); result(false, "Nessun gestore file disponibile."); }
             }});
         }
+        @JavascriptInterface public void scanBarcode() {
+            if (scanning) return;
+            scanning = true;
+            runOnUiThread(new Runnable() { public void run() {
+                try {
+                    java.io.File file = CameraOutputProvider.fileFor(MainActivity.this);
+                    if (file.exists() && !file.delete()) throw new Exception("File temporaneo non libero.");
+                    Intent i = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+                    i.putExtra(MediaStore.EXTRA_OUTPUT, CameraOutputProvider.OUTPUT);
+                    i.setClipData(ClipData.newRawUri("", CameraOutputProvider.OUTPUT));
+                    i.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    startActivityForResult(i, SCAN);
+                } catch (Exception e) {
+                    scanning = false;
+                    result(false, "Nessuna fotocamera disponibile: inserisci il codice a mano.");
+                }
+            }});
+        }
         @JavascriptInterface public void importBackup() {
             runOnUiThread(new Runnable() { public void run() {
                 try {
@@ -99,6 +124,12 @@ public final class MainActivity extends Activity {
     }
     @Override protected void onActivityResult(int request, int code, Intent data) {
         super.onActivityResult(request, code, data);
+        if (request == SCAN) {
+            scanning = false;
+            final boolean captured = code == RESULT_OK;
+            new Thread(new Runnable() { public void run() { readLabel(captured); } }).start();
+            return;
+        }
         if (code != RESULT_OK || data == null || data.getData() == null) {
             if (request == EXPORT) prefs.edit().remove("pendingExport").apply();
             return;
@@ -135,12 +166,58 @@ public final class MainActivity extends Activity {
             } catch (Exception e) { result(false, "Operazione non riuscita: " + e.getMessage()); }
         }}).start();
     }
+    /** Converte lo scatto in scala di grigi e lo passa al lettore JavaScript. */
+    private void readLabel(boolean captured) {
+        java.io.File file = CameraOutputProvider.fileFor(this);
+        try {
+            if (!captured) {
+                runOnUiThread(new Runnable() { public void run() {
+                    if (web != null) web.evaluateJavascript("window.onNativeScan && window.onNativeScan(null)", null);
+                }});
+                return;
+            }
+            if (!file.exists() || file.length() == 0) throw new Exception("La fotocamera non ha salvato la foto. Riprova.");
+            BitmapFactory.Options bounds = new BitmapFactory.Options();
+            bounds.inJustDecodeBounds = true;
+            BitmapFactory.decodeFile(file.getAbsolutePath(), bounds);
+            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) throw new Exception("Foto non leggibile.");
+            int sample = 1;
+            while (Math.max(bounds.outWidth, bounds.outHeight) / sample > SCAN_MAX_SIDE) sample *= 2;
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inSampleSize = sample;
+            options.inPreferredConfig = Bitmap.Config.ARGB_8888;
+            Bitmap bitmap = BitmapFactory.decodeFile(file.getAbsolutePath(), options);
+            if (bitmap == null) throw new Exception("Foto non leggibile.");
+            int width = bitmap.getWidth(), height = bitmap.getHeight();
+            int[] pixels = new int[width * height];
+            bitmap.getPixels(pixels, 0, width, 0, 0, width, height);
+            byte[] gray = new byte[width * height];
+            for (int i = 0; i < gray.length; i++) {
+                int c = pixels[i];
+                gray[i] = (byte) ((((c >> 16) & 0xff) * 77 + ((c >> 8) & 0xff) * 150 + (c & 0xff) * 29) >> 8);
+            }
+            bitmap.recycle();
+            final String payload = "window.onNativeScan && window.onNativeScan({width:" + width + ",height:" + height + ",data:\"" + Base64.encodeToString(gray, Base64.NO_WRAP) + "\"})";
+            runOnUiThread(new Runnable() { public void run() {
+                if (web != null) web.evaluateJavascript(payload, null);
+            }});
+        } catch (Exception e) {
+            final String message = e.getMessage() == null ? "Foto non leggibile." : e.getMessage();
+            runOnUiThread(new Runnable() { public void run() {
+                if (web != null) web.evaluateJavascript("window.onNativeScanError && window.onNativeScanError(" + JSONObject.quote(message) + ")", null);
+            }});
+        } finally {
+            if (file.exists()) file.delete();
+        }
+    }
+
     @Override public void onBackPressed() {
         web.evaluateJavascript("window.handleAndroidBack ? window.handleAndroidBack() : false", new ValueCallback<String>() { public void onReceiveValue(String value) {
             if (!"true".equals(value)) MainActivity.super.onBackPressed();
         }});
     }
     @Override protected void onDestroy() {
+        scanning = false;
         if (web != null) { web.removeJavascriptInterface("Android"); web.destroy(); web = null; }
         super.onDestroy();
     }

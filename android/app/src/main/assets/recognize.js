@@ -99,15 +99,22 @@
   function pickName(lines) {
     const blocks = [];
     let current = [];
+    const flush = () => { if (current.length) { blocks.push(current); current = []; } };
     for (let i = 0; i < Math.min(lines.length, 10); i++) {
       const candidate = nameCandidate(lines[i]);
-      if (!candidate) {
-        if (current.length) { blocks.push(current); current = []; }
-        continue;
+      if (!candidate) { flush(); continue; }
+      // Due righe si uniscono solo se "vanno insieme": lunghezza simile
+      // (stessa dimensione di carattere) e la prima non finisce con una cifra
+      // (es. "PENNE RIGATE" + frammento minuscolo "SEO" + "RO NERO 500").
+      if (current.length) {
+        const first = current[0].text;
+        const prev = current[current.length - 1].text;
+        const tooLong = Math.abs(candidate.length - first.length) > Math.max(5, first.length * 0.6);
+        if (tooLong || /\d\s*$/.test(prev)) flush();
       }
       current.push({ index: i, text: candidate });
     }
-    if (current.length) blocks.push(current);
+    flush();
     let best = null, bestScore = 0;
     for (const block of blocks) {
       const words = block.map(b => b.text).join(' ').split(/\s+/);

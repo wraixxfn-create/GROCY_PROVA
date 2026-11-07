@@ -1,1 +1,1 @@
-903b93747f6fbe992f643abc1a8472c90c87eeecc2437de9bf865e57ba1b975a  grocy-locale-v2.0.0.apk
+ce04db48204d50be20fa9b607c086dab11533bdee4ac15b498438bc6d16c9a5b  grocy-locale-v2.1.0.apk

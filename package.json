@@ -1,12 +1,14 @@
 {
   "name": "grocy-locale",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "private": true,
   "description": "Dispensa Android locale sul telefono (senza server), inserimento guidato con 2 foto",
   "scripts": {
     "start": "node scripts/serve.mjs",
-    "test": "node --test tests/model.test.cjs tests/barcode.test.cjs tests/recognize.test.cjs tests/openfoodfacts.test.cjs",
+    "test": "node --test tests/model.test.cjs tests/barcode.test.cjs tests/recognize.test.cjs tests/preproc.test.cjs tests/openfoodfacts.test.cjs",
     "test:ocr": "node --test tests/ocr.test.cjs",
+    "test:hard": "node tests/ocr-bench.cjs",
+    "fixtures:hard": "bash scripts/make-hard-fixtures.sh",
     "vendor:ocr": "bash scripts/vendor-ocr.sh",
     "test:browser": "node tests/browser.mjs",
     "build:apk": "bash scripts/build-apk.sh"

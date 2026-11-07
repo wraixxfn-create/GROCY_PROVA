@@ -4,7 +4,7 @@ cd "$(dirname "$0")/.."
 BUILD="$PWD/build/android"
 SRC="$PWD/android/app/src/main"
 TOOLS="$PWD/.tools"
-APK_NAME="grocy-locale-v2.0.0.apk"
+APK_NAME="grocy-locale-v2.1.0.apk"
 # Engine OCR locale (Tesseract in WebAssembly) dentro gli asset: si genera una
 # volta sola con npm run vendor:ocr se non è già presente.
 bash scripts/vendor-ocr.sh

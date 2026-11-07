@@ -92,6 +92,16 @@ test('righe di ingredienti e società non diventano il nome', () => {
   assert.equal(parsed.brand, 'Granarolo');
 });
 
+test('i frammenti di una foto inclinata non finiscono nel nome', () => {
+  // Righe tipiche che produce l\'OCR su una confezione ruotata: il titolo vero
+  // seguito da spezzoni illeggibili e dalla riga del peso.
+  const parsed = R.parse(['PENNE RIGATE', 'SEO', 'RO NERO 500,'].join('\n'), {role: 'pack'});
+  assert.equal(parsed.name, 'Penne rigate');
+  // Due righe dello stesso titolo (stessa dimensione) continuano a unirsi.
+  const ok = R.parse(['PASSATA', 'DI POMODORO', 'MUTTI S.p.A.'].join('\n'), {role: 'pack'});
+  assert.equal(ok.name, 'Passata di pomodoro');
+});
+
 test('due foto si fondono: scadenza dall’etichetta, quantità dal fronte', () => {
   const signal = R.merge(parseFronte(), parseRetro());
   assert.equal(signal.name, 'Passata di pomodoro');

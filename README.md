@@ -1,20 +1,31 @@
-# Grocy Locale 2.0 — Dispensa sul telefono (senza server)
+# Grocy Locale 2.1 — Dispensa sul telefono (senza server)
 
 App mobile **autonoma**, in italiano, per gestire dispensa, frigorifero, congelatore, scadenze e lista della spesa direttamente dal telefono — **senza alcun server da installare o mantenere** e **senza chiavi API**.
 
-## Installa l’APK sul telefono Android
+## Installa l'APK sul telefono Android
 
-**[Scarica Grocy Locale 2.0.0](downloads/grocy-locale-v2.0.0.apk)**
+**[Scarica Grocy Locale 2.1.0](downloads/grocy-locale-v2.1.0.apk)**
 
-1. Scarica `grocy-locale-v2.0.0.apk` sul telefono Android (oppure usa il pulsante **Scarica APK** dall’anteprima web).
+1. Scarica `grocy-locale-v2.1.0.apk` sul telefono Android (oppure usa il pulsante **Scarica APK** dall'anteprima web).
 2. Aprilo da *Download* e, se richiesto, consenti **Installa app sconosciute**.
 3. Tocca **Installa** e poi **Apri** (Android 8.0 / API 26 o successivo).
 
-> **Nota aggiornamento da v1.x:** se hai già installato una versione precedente con dati importanti, esporta prima il backup JSON da *Impostazioni → Esporta backup* e reimportalo dopo l’installazione. I backup v1 sono pienamente compatibili.
+> **Nota aggiornamento da v1.x:** se hai già installato una versione precedente con dati importanti, esporta prima il backup JSON da *Impostazioni → Esporta backup* e reimportalo dopo l'installazione. I backup v1 sono pienamente compatibili.
 
 Checksum SHA-256 in [`downloads/SHA256SUMS.txt`](downloads/SHA256SUMS.txt).
 
-## Cosa cambia nella versione 2.0
+## Cosa cambia nella versione 2.1 — riconoscimento molto più robusto
+
+Le foto vere fatte col telefono sono spesso inclinate, scure, con riflessi o con date piccolissime: la 2.1 le legge davvero, preparando l'immagine con più passaggi automatici prima della lettura OCR.
+
+- **Raddrizzamento automatico (deskew)**: la foto viene analizzata col profilo di proiezione e se il testo è inclinato (fino a ±11 gradi) viene ruotata prima della lettura — niente più nomi assurdi tipo «Penne rigate seo ro nero 500» su foto sbilenche.
+- **Illuminazione appiattita**: una nuova fase stima il fondo locale (erosione + sfocato, senza farsi ingannare dalla scritta) e riporta il contrasto della sola scritta; recupera i testi coperti da riflessi lucidi, controluce e plastica scura, con guadagno adattivo per le scritte quasi invisibili.
+- **Inversione automatica di polarità**: le scritte chiare su fondo scuro (tappi, lattine, timbri su plastica nera) vengono capovolte in inchiostro scuro su chiaro, come le preferisce il motore di lettura.
+- **Binarizzazione di Otsu + ingrandimento** per i timbri a getto d'inchiostro minuscoli; il codice a barre viene cercato anche sull'immagine con le luci appiattite.
+- **Lettura multi-passaggio intelligente**: l'app prova foto raddrizzata → luce uniforme → alto contrasto, fermandosi appena il testo è sufficiente; se la foto è quasi illeggibile prova anche i quarti di giro (90/180/270°). La schermata di lettura mostra sempre cosa sta succedendo.
+- **Nomi più puliti**: le righe di dimensioni diverse o chiuse da cifre non vengono più fuse nel nome del prodotto, così i frammenti illeggibili dell'OCR non finiscono nella scheda.
+
+## Cosa c'era già nella 2.0
 
 - **Interfaccia ripensata e immediata**:
   - Si apre direttamente sulla **Dispensa** ordinata per scadenza, senza schermate superflue.
@@ -22,16 +33,16 @@ Checksum SHA-256 in [`downloads/SHA256SUMS.txt`](downloads/SHA256SUMS.txt).
   - Pulsanti **`−` / `+`** direttamente su ogni prodotto per scalare o aggiungere quantità con un solo tocco (e quando un prodotto finisce puoi mandarlo subito nella **Spesa**).
   - Tre sole sezioni chiare: **Dispensa**, **Spesa**, **Impostazioni**.
 - **Inserimento guidato con 2 foto**:
-  1. **Foto 1 — Fronte della confezione**: salva la **miniatura a colori** del prodotto e legge nome, marca e categoria (avviando l’analisi in background mentre giri la confezione).
-  2. **Foto 2 — Data di scadenza dietro**: legge la data di scadenza — se la data letta è già passata, la interpreta come **data di produzione** e la salva in un campo separato, senza segnare il prodotto come scaduto (formati italiani `GG/MM/AAAA`, `GG.MM.AA`, `GG MM AA`, `MM/AAAA`, date freschi `GG/MM`, mesi testuali `15 NOV 2026`, con secondo passaggio automatico ad alto contrasto sul centro della foto per i timbri piccoli).
+  1. **Foto 1 — Fronte della confezione**: salva la **miniatura a colori** del prodotto e legge nome, marca e categoria (avviando l'analisi in background mentre giri la confezione).
+  2. **Foto 2 — Data di scadenza dietro**: legge la data di scadenza — se la data letta è già passata, la interpreta come **data di produzione** e la salva in un campo separato, senza segnare il prodotto come scaduto (formati italiani `GG/MM/AAAA`, `GG.MM.AA`, `GG MM AA`, `MM/AAAA`, date freschi `GG/MM`, mesi testuali `15 NOV 2026`, con passaggi automatici aggiuntivi sui timbri piccoli).
   3. **Controlla e salva**: scheda essenziale già pronta con miniatura del prodotto, anteprima della foto scadenza, categoria a icone, luogo suggerito in automatico (*Frigorifero* per latticini/freschi, *Congelatore* per surgelati, *Dispensa* per secchi/conserve) e pulsante **Salva in dispensa**.
 - **Tutto sul telefono + Open Food Facts via internet (zero server, zero chiavi API)**:
   - Tutti i dati (prodotti, miniature, scadenze, catalogo imparato e lista della spesa) restano salvati **solo sul telefono**.
-  - Sul dispositivo gira il motore OCR locale (Tesseract in WebAssembly incluso nell’APK) più il lettore di codici a barre EAN-13/UPC-A/EAN-8.
-  - Quando il telefono ha internet, l’app interroga direttamente in HTTPS il catalogo pubblico gratuito **[Open Food Facts](https://it.openfoodfacts.org)** per migliorare il nome del prodotto e la categoria (sia tramite codice a barre sia tramite il testo letto sul fronte), senza bisogno di alcun server intermedio né di registrare account o chiavi API.
-  - Se non c’è campo (es. in cantina o modalità aereo), funziona comunque in automatico con il solo motore OCR locale e la memoria dei prodotti già scansionati.
+  - Sul dispositivo gira il motore OCR locale (Tesseract in WebAssembly incluso nell'APK) più il lettore di codici a barre EAN-13/UPC-A/EAN-8.
+  - Quando il telefono ha internet, l'app interroga direttamente in HTTPS il catalogo pubblico gratuito **[Open Food Facts](https://it.openfoodfacts.org)** per migliorare il nome del prodotto e la categoria (sia tramite codice a barre sia tramite il testo letto sul fronte), senza bisogno di alcun server intermedio né di registrare account o chiavi API.
+  - Se non c'è campo (es. in cantina o modalità aereo), funziona comunque in automatico con il solo motore OCR locale e la memoria dei prodotti già scansionati.
 
-## Avvio dell’anteprima web
+## Avvio dell'anteprima web
 
 Con Node.js 22+:
 
@@ -44,14 +55,16 @@ npm start
 ## Test e ricompilazione APK
 
 ```sh
-npm test              # test unitari: modello, miniature, codici a barre, scadenze, Open Food Facts
+npm test              # test unitari: modello, miniature, codici a barre, scadenze, pre-elaborazione, Open Food Facts
 npm run vendor:ocr    # prepara gli asset OCR WebAssembly locali
 npm run test:ocr      # test del motore OCR reale sulle foto di tests/fixtures
+npm run fixtures:hard # genera le foto «difficili» (inclinazione, riflessi, timbri minuscoli…)
+npm run test:hard     # banco di misura del riconoscimento su tutte le foto, comprese quelle difficili
 npm run test:browser  # test end-to-end mobile, desktop e WebView Android file://
-npm run build:apk     # compila, allinea, firma e verifica downloads/grocy-locale-v2.0.0.apk
+npm run build:apk     # compila, allinea, firma e verifica downloads/grocy-locale-v2.1.0.apk
 ```
 
-Se nell’ambiente non sono installati Android SDK e JDK, esegui prima `bash scripts/bootstrap-local-tools.sh` e poi `npm run build:apk`.
+Se nell'ambiente non sono installati Android SDK e JDK, esegui prima `bash scripts/bootstrap-local-tools.sh` e poi `npm run build:apk`.
 
 ## Licenza
 

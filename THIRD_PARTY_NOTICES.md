@@ -28,6 +28,16 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
+## Motore di lettura del testo (incluso nell'app)
+
+Il riconoscimento del testo stampato sulle confezioni usa componenti open source **incorporati nell'APK**, senza modifiche, con versioni bloccate e verificate con sha256 da `scripts/vendor-ocr.sh`:
+
+- **Tesseract OCR** — Google/University of Nevada, Apache License 2.0, <https://github.com/tesseract-ocr/tesseract>. Compilato in WebAssembly dal progetto `tesseract.js-core` (npm `tesseract.js-core@5.1.1`, Apache-2.0, <https://github.com/naptha/tesseract.js>).
+- **Dati linguistici italiani** (`ita.traineddata`, variante `4.0.0_best_int`, LSTM) — `tessdata_fast`, Apache License 2.0, <https://github.com/tesseract-ocr/tessdata_fast>, distribuiti dal pacchetto npm `@tesseract.js-data/ita@1.0.0`.
+- I file generati stanno in `android/app/src/main/assets/vendor/` e vengono caricati dal WebView con `file:///android_asset/`: nessuna richiesta di rete, nessun servizio esterno.
+
+Il codice di questo progetto che li richiama (`assets/ocr.js`, `assets/recognize.js`, `assets/product-scan.js`) è distribuito con licenza MIT come il resto del repository.
+
 ## Strumenti di compilazione e test (non inclusi nell'app)
 
 - AOSP Android platform e dx: Android Open Source Project, Apache-2.0 e altre licenze dei rispettivi componenti. I sorgenti dx e dex provengono da `aosp-mirror/platform_dalvik` e `LineageOS/android_libcore`.

@@ -7,6 +7,8 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Matrix;
+import android.media.ExifInterface;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
@@ -29,10 +31,12 @@ import org.json.JSONObject;
 public final class MainActivity extends Activity {
     private WebView web;
     private SharedPreferences prefs;
-    private static final int EXPORT = 100, IMPORT = 101, SCAN = 102;
+    private static final int EXPORT = 100, IMPORT = 101, SCAN = 102, PHOTO_CAPTURE = 103, PHOTO_PICK = 104;
     private static final int MAX_BYTES = 8000000;
     private static final int SCAN_MAX_SIDE = 1600;
+    private static final int PHOTO_MAX_SIDE = 1600;
     private boolean scanning = false;
+    private String photoKind = "pack";
 
     @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
     @Override public void onCreate(Bundle savedInstanceState) {
@@ -106,6 +110,41 @@ public final class MainActivity extends Activity {
                 }
             }});
         }
+        /**
+         * Scatto per il riconoscimento con due foto. kind è "pack" o "label":
+         * torna a JavaScript insieme all'immagine già in scala di grigi.
+         */
+        @JavascriptInterface public void capturePhoto(final String kind) {
+            photoKind = kindOf(kind);
+            runOnUiThread(new Runnable() { public void run() {
+                try {
+                    java.io.File file = CameraOutputProvider.fileFor(MainActivity.this);
+                    if (file.exists() && !file.delete()) throw new Exception("File temporaneo non libero.");
+                    Intent i = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+                    i.putExtra(MediaStore.EXTRA_OUTPUT, CameraOutputProvider.OUTPUT);
+                    i.setClipData(ClipData.newRawUri("", CameraOutputProvider.OUTPUT));
+                    i.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    startActivityForResult(i, PHOTO_CAPTURE);
+                } catch (Exception e) {
+                    photoError("Nessuna fotocamera disponibile: scegli una foto dalla galleria.");
+                }
+            }});
+        }
+        /** Foto già scattata, scelta dal selettore di documenti di Android. */
+        @JavascriptInterface public void pickPhoto(final String kind) {
+            photoKind = kindOf(kind);
+            runOnUiThread(new Runnable() { public void run() {
+                try {
+                    Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                    i.addCategory(Intent.CATEGORY_OPENABLE);
+                    i.setType("image/*");
+                    i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    startActivityForResult(i, PHOTO_PICK);
+                } catch (Exception e) {
+                    photoError("Nessun selettore di foto disponibile.");
+                }
+            }});
+        }
         @JavascriptInterface public void importBackup() {
             runOnUiThread(new Runnable() { public void run() {
                 try {
@@ -117,17 +156,41 @@ public final class MainActivity extends Activity {
             }});
         }
     }
+
+    private static String kindOf(String kind) {
+        return "label".equals(kind) ? "label" : "pack";
+    }
+
     private void result(final boolean ok, final String message) {
         runOnUiThread(new Runnable() { public void run() {
             if (web != null) web.evaluateJavascript("window.onNativeResult && window.onNativeResult(" + ok + "," + JSONObject.quote(message) + ")", null);
         }});
     }
+
+    private void photoError(final String message) {
+        runOnUiThread(new Runnable() { public void run() {
+            if (web != null) web.evaluateJavascript("window.onNativePhotoError && window.onNativePhotoError(" + JSONObject.quote(message) + ")", null);
+        }});
+    }
+
     @Override protected void onActivityResult(int request, int code, Intent data) {
         super.onActivityResult(request, code, data);
         if (request == SCAN) {
             scanning = false;
             final boolean captured = code == RESULT_OK;
             new Thread(new Runnable() { public void run() { readLabel(captured); } }).start();
+            return;
+        }
+        if (request == PHOTO_CAPTURE) {
+            final boolean captured = code == RESULT_OK;
+            final String kind = photoKind;
+            new Thread(new Runnable() { public void run() { deliverCaptured(kind, captured); } }).start();
+            return;
+        }
+        if (request == PHOTO_PICK) {
+            final String kind = photoKind;
+            final Uri uri = (code == RESULT_OK && data != null) ? data.getData() : null;
+            new Thread(new Runnable() { public void run() { deliverPicked(kind, uri); } }).start();
             return;
         }
         if (code != RESULT_OK || data == null || data.getData() == null) {
@@ -166,6 +229,7 @@ public final class MainActivity extends Activity {
             } catch (Exception e) { result(false, "Operazione non riuscita: " + e.getMessage()); }
         }}).start();
     }
+
     /** Converte lo scatto in scala di grigi e lo passa al lettore JavaScript. */
     private void readLabel(boolean captured) {
         java.io.File file = CameraOutputProvider.fileFor(this);
@@ -177,30 +241,11 @@ public final class MainActivity extends Activity {
                 return;
             }
             if (!file.exists() || file.length() == 0) throw new Exception("La fotocamera non ha salvato la foto. Riprova.");
-            BitmapFactory.Options bounds = new BitmapFactory.Options();
-            bounds.inJustDecodeBounds = true;
-            BitmapFactory.decodeFile(file.getAbsolutePath(), bounds);
-            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) throw new Exception("Foto non leggibile.");
-            int sample = 1;
-            while (Math.max(bounds.outWidth, bounds.outHeight) / sample > SCAN_MAX_SIDE) sample *= 2;
-            BitmapFactory.Options options = new BitmapFactory.Options();
-            options.inSampleSize = sample;
-            options.inPreferredConfig = Bitmap.Config.ARGB_8888;
-            Bitmap bitmap = BitmapFactory.decodeFile(file.getAbsolutePath(), options);
-            if (bitmap == null) throw new Exception("Foto non leggibile.");
-            int width = bitmap.getWidth(), height = bitmap.getHeight();
-            int[] pixels = new int[width * height];
-            bitmap.getPixels(pixels, 0, width, 0, 0, width, height);
-            byte[] gray = new byte[width * height];
-            for (int i = 0; i < gray.length; i++) {
-                int c = pixels[i];
-                gray[i] = (byte) ((((c >> 16) & 0xff) * 77 + ((c >> 8) & 0xff) * 150 + (c & 0xff) * 29) >> 8);
-            }
+            Bitmap bitmap = decodePhoto(file);
+            String payload = "window.onNativeScan && window.onNativeScan({width:" + bitmap.getWidth()
+                    + ",height:" + bitmap.getHeight() + ",data:\"" + grayBase64(bitmap) + "\"})";
             bitmap.recycle();
-            final String payload = "window.onNativeScan && window.onNativeScan({width:" + width + ",height:" + height + ",data:\"" + Base64.encodeToString(gray, Base64.NO_WRAP) + "\"})";
-            runOnUiThread(new Runnable() { public void run() {
-                if (web != null) web.evaluateJavascript(payload, null);
-            }});
+            emit(payload);
         } catch (Exception e) {
             final String message = e.getMessage() == null ? "Foto non leggibile." : e.getMessage();
             runOnUiThread(new Runnable() { public void run() {
@@ -209,6 +254,129 @@ public final class MainActivity extends Activity {
         } finally {
             if (file.exists()) file.delete();
         }
+    }
+
+    private void deliverCaptured(String kind, boolean captured) {
+        java.io.File file = CameraOutputProvider.fileFor(this);
+        try {
+            if (!captured) { emitPhotoCancelled(); return; }
+            if (!file.exists() || file.length() == 0) throw new Exception("La fotocamera non ha salvato la foto. Riprova.");
+            Bitmap bitmap = decodePhoto(file);
+            emitPhoto(kind, bitmap);
+            bitmap.recycle();
+        } catch (Exception e) {
+            photoError(e.getMessage() == null ? "Foto non leggibile." : e.getMessage());
+        } finally {
+            if (file.exists()) file.delete();
+        }
+    }
+
+    private void deliverPicked(String kind, Uri uri) {
+        Bitmap bitmap = null;
+        try {
+            if (uri == null) { emitPhotoCancelled(); return; }
+            bitmap = decodePhoto(uri);
+            emitPhoto(kind, bitmap);
+        } catch (Exception e) {
+            photoError(e.getMessage() == null ? "Foto non leggibile." : e.getMessage());
+        } finally {
+            if (bitmap != null) bitmap.recycle();
+        }
+    }
+
+    private void emitPhotoCancelled() {
+        runOnUiThread(new Runnable() { public void run() {
+            if (web != null) web.evaluateJavascript("window.onNativePhoto && window.onNativePhoto(null)", null);
+        }});
+    }
+
+    private void emitPhoto(String kind, Bitmap bitmap) {
+        String payload = "window.onNativePhoto && window.onNativePhoto({kind:" + JSONObject.quote(kindOf(kind))
+                + ",width:" + bitmap.getWidth() + ",height:" + bitmap.getHeight()
+                + ",data:\"" + grayBase64(bitmap) + "\"})";
+        emit(payload);
+    }
+
+    private void emit(final String javascript) {
+        runOnUiThread(new Runnable() { public void run() {
+            if (web != null) web.evaluateJavascript(javascript, null);
+        }});
+    }
+
+    /*
+     * Le foto arrivano ruotate: la fotocamera salva i pixel e annota
+     * l'orientamento nei metadati EXIF. Senza questa correzione il testo
+     * verrebbe letto di traverso.
+     */
+    private Bitmap decodePhoto(java.io.File file) throws Exception {
+        BitmapFactory.Options bounds = new BitmapFactory.Options();
+        bounds.inJustDecodeBounds = true;
+        BitmapFactory.decodeFile(file.getAbsolutePath(), bounds);
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) throw new Exception("Foto non leggibile.");
+        BitmapFactory.Options options = new BitmapFactory.Options();
+        options.inSampleSize = sampleSize(bounds.outWidth, bounds.outHeight, PHOTO_MAX_SIDE);
+        options.inPreferredConfig = Bitmap.Config.ARGB_8888;
+        Bitmap bitmap = BitmapFactory.decodeFile(file.getAbsolutePath(), options);
+        if (bitmap == null) throw new Exception("Foto non leggibile.");
+        int orientation = ExifInterface.ORIENTATION_NORMAL;
+        try { orientation = new ExifInterface(file.getAbsolutePath()).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL); }
+        catch (Exception ignored) { /* senza EXIF la foto resta come è */ }
+        return rotate(bitmap, orientation);
+    }
+
+    private Bitmap decodePhoto(Uri uri) throws Exception {
+        BitmapFactory.Options bounds = new BitmapFactory.Options();
+        bounds.inJustDecodeBounds = true;
+        InputStream in = getContentResolver().openInputStream(uri);
+        if (in == null) throw new Exception("Foto non leggibile.");
+        try { BitmapFactory.decodeStream(in, null, bounds); } finally { in.close(); }
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) throw new Exception("La foto scelta non è un’immagine.");
+        BitmapFactory.Options options = new BitmapFactory.Options();
+        options.inSampleSize = sampleSize(bounds.outWidth, bounds.outHeight, PHOTO_MAX_SIDE);
+        options.inPreferredConfig = Bitmap.Config.ARGB_8888;
+        in = getContentResolver().openInputStream(uri);
+        if (in == null) throw new Exception("Foto non leggibile.");
+        Bitmap bitmap;
+        try { bitmap = BitmapFactory.decodeStream(in, null, options); } finally { in.close(); }
+        if (bitmap == null) throw new Exception("Foto non leggibile.");
+        int orientation = ExifInterface.ORIENTATION_NORMAL;
+        InputStream exifStream = null;
+        try {
+            exifStream = getContentResolver().openInputStream(uri);
+            if (exifStream != null) orientation = new ExifInterface(exifStream).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL);
+        } catch (Exception ignored) { /* alcuni provider non espongono i metadati */ }
+        finally { if (exifStream != null) try { exifStream.close(); } catch (Exception ignored) { } }
+        return rotate(bitmap, orientation);
+    }
+
+    private static int sampleSize(int width, int height, int max) {
+        int sample = 1;
+        while (Math.max(width, height) / sample > max) sample *= 2;
+        return sample;
+    }
+
+    private static Bitmap rotate(Bitmap source, int orientation) {
+        int degrees = orientation == ExifInterface.ORIENTATION_ROTATE_90 ? 90
+                : orientation == ExifInterface.ORIENTATION_ROTATE_180 ? 180
+                : orientation == ExifInterface.ORIENTATION_ROTATE_270 ? 270 : 0;
+        if (degrees == 0) return source;
+        Matrix matrix = new Matrix();
+        matrix.postRotate(degrees);
+        Bitmap rotated = Bitmap.createBitmap(source, 0, 0, source.getWidth(), source.getHeight(), matrix, true);
+        if (rotated != source) source.recycle();
+        return rotated;
+    }
+
+    private static String grayBase64(Bitmap bitmap) {
+        int width = bitmap.getWidth(), height = bitmap.getHeight();
+        int[] pixels = new int[width * height];
+        bitmap.getPixels(pixels, 0, width, 0, 0, width, height);
+        byte[] gray = new byte[width * height];
+        for (int i = 0; i < gray.length; i++) {
+            int c = pixels[i];
+            gray[i] = (byte) ((((c >> 16) & 0xff) * 77 + ((c >> 8) & 0xff) * 150 + (c & 0xff) * 29) >> 8);
+        }
+        return Base64.encodeToString(gray, Base64.NO_WRAP);
     }
 
     @Override public void onBackPressed() {

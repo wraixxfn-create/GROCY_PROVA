@@ -4,9 +4,9 @@ Versione mobile **autonoma**, in italiano, ispirata a [Grocy](https://github.com
 
 ## Installa l’APK dal telefono
 
-**[Scarica Grocy Locale 1.1.0](downloads/grocy-locale-v1.1.0.apk)**
+**[Scarica Grocy Locale 1.2.0](downloads/grocy-locale-v1.2.0.apk)**
 
-1. Scarica il file `grocy-locale-v1.1.0.apk` sul telefono Android.
+1. Scarica il file `grocy-locale-v1.2.0.apk` sul telefono Android.
 2. Aprilo da Download. Se Android lo richiede, autorizza **Installa app sconosciute** per il browser o il gestore file usato. Puoi revocare questa autorizzazione dopo l’installazione.
 3. Tocca **Installa** e poi **Apri**. È richiesta una versione recente di **Android System WebView**.
 4. Aggiungi il primo prodotto oppure carica, facoltativamente, una dispensa dimostrativa.
@@ -15,7 +15,9 @@ Versione mobile **autonoma**, in italiano, ispirata a [Grocy](https://github.com
 
 L’APK è una **prima build per installazione manuale**, firmata con certificato di sviluppo. Firma v2/v3 e allineamento verificati. Non è stata eseguita una prova su telefono fisico o emulatore Android: i test automatici riguardano la logica e l’interfaccia web, non sostituiscono un collaudo Android.
 
-La versione 1.1 aggiunge l’aggiunta dei prodotti leggendo il codice a barre dell’etichetta con la fotocamera (o da una foto, nell’anteprima web).
+La versione 1.2 aggiunge il **riconoscimento del prodotto con due foto**, interamente sul telefono: si fotografa la confezione e poi l’etichetta, e l’app legge da sola nome, marca, quantità, scadenza e codice a barre. La versione 1.1 aveva aggiunto la lettura del codice a barre dell’etichetta con la fotocamera (o da una foto, nell’anteprima web).
+
+L’APK contiene il motore di lettura del testo (Tesseract compilato in WebAssembly) e i dati della lingua italiana: circa 8 MB di asset, che portano l’APK a 3,2 MB grazie alla compressione. Non serve rete, né un server, né una chiave API.
 
 Il checksum è in [`downloads/SHA256SUMS.txt`](downloads/SHA256SUMS.txt). Nell’anteprima web c’è anche un pulsante **Scarica APK**, servito con MIME Android e intestazione di download.
 
@@ -24,6 +26,7 @@ Il checksum è in [`downloads/SHA256SUMS.txt`](downloads/SHA256SUMS.txt). Nell�
 - Panoramica con scorte, scadenze imminenti, scorte minime e articoli da acquistare.
 - Inserimento, modifica e rimozione dei prodotti.
 - **Aggiunta con il codice a barre dell’etichetta**: si scatta una foto al codice e l’app lo riconosce sul dispositivo (EAN-13, UPC-A, EAN-8), oppure lo si digita. Se il codice è già associato a un prodotto, l’app propone subito il rifornimento invece di creare un doppione.
+- **Riconoscimento con due foto**: pulsante *Due foto* nella dispensa. La prima foto è la confezione (il fronte, dove sta il nome), la seconda è l’etichetta (il retro con scadenza, ingredienti, peso e codice a barre). Ogni foto può essere scattata al momento o scelta dalla galleria. L’app legge il testo con il motore OCR incluso nell’APK, ricava nome, marca, quantità con unità, categoria suggerita, scadenza (anche come mese/anno, riportato all’ultimo giorno del mese) e codice a barre, poi confronta il risultato con la dispensa: se il prodotto c’è già propone il rifornimento, altrimenti apre la scheda precompilata da confermare. Le parole chiave lette restano nel prodotto (campo `scan`), così al giro successivo il riconoscimento è più preciso e non richiede di riscrivere nulla.
 - Quantità frazionarie e unità `pz`, `kg`, `g`, `l`, `ml`, `conf`.
 - Consumi e rifornimenti, senza quantità negative.
 - Tre luoghi: dispensa, frigorifero, congelatore.
@@ -37,7 +40,10 @@ Il checksum è in [`downloads/SHA256SUMS.txt`](downloads/SHA256SUMS.txt). Nell�
 ### Limiti intenzionali della prima versione
 
 - La scansione usa l’app fotocamera già presente su Android: non c’è un’anteprima dentro l’app e non viene richiesto il permesso `CAMERA`. Sono supportati solo EAN-13, UPC-A ed EAN-8, non QR o Code 128.
-- Il codice non dice *cosa* contiene la confezione: nome, scadenza e categoria si inseriscono o confermano a mano. Nessun catalogo online, nessuna ricerca per marca.
+- Il riconoscimento si basa sul **testo stampato** e sul **codice a barre**, non sull’aspetto della confezione: nessun confronto di immagini, quindi nessun rischio di scambiare due prodotti simili. Se il testo non è leggibile (foto mossa, riflessi, confezione senza scritte) l’app non indovina: mostra cosa ha letto e lascia compilare a mano.
+- Nessun catalogo online e nessuna ricerca per marca: il nome del prodotto lo detta la confezione. Le parole chiave imparate valgono solo per quella dispensa.
+- Il motore OCR richiede WebAssembly e CSP `wasm-unsafe-eval` nel WebView: serve un **Android System WebView** aggiornato (in pratica Android 8 con WebView aggiornato dai componenti di sistema). Se il motore non si avvia, l’app continua a funzionare con il solo codice a barre e lo segnala.
+- Una foto intera richiede in genere 0,3–1,5 secondi per la lettura del testo; la prima volta si aggiungono un paio di secondi per caricare il motore in memoria.
 - La foto dell’etichetta non viene salvata: resta nella cache privata dell’app solo il tempo della lettura e viene eliminata subito dopo.
 - Niente ricette, faccende, batterie, attrezzature, prezzi o report completi di Grocy.
 - Nessuna sincronizzazione, nessun account, nessuna notifica in background.
@@ -50,7 +56,9 @@ Il checksum è in [`downloads/SHA256SUMS.txt`](downloads/SHA256SUMS.txt). Nell�
 
 Nell’APK lo stato JSON è salvato nella memoria privata dell’app (`SharedPreferences`), non su un server. L’APK **non dichiara alcun permesso**, incluso `INTERNET` e `CAMERA`. Il WebView carica esclusivamente risorse incluse nell’APK; i caricamenti di rete e le navigazioni esterne sono bloccati. Non ci sono CDN, font remoti, analytics o dipendenze di rete a runtime.
 
-La lettura del codice a barre avviene interamente sul telefono: l’app apre l’app fotocamera di sistema tramite un’intenzione Android, riceve lo scatto in un file temporaneo nella propria cache privata, lo converte in una matrice di grigi e lo elimina subito dopo la lettura. L’immagine non viene mai allegata alla dispensa, non viene inviata altrove e non finisce nei backup. Nell’anteprima web la foto viene letta nello stesso modo dal browser e non viene caricata sul server.
+La lettura del codice a barre e delle due foto avviene interamente sul telefono: l’app apre la fotocamera di sistema tramite un’intenzione Android (o il selettore di documenti, per una foto dalla galleria), riceve lo scatto in un file temporaneo nella propria cache privata, lo converte in una matrice di grigi e lo elimina subito dopo la lettura. Il testo viene riconosciuto da Tesseract compilato in WebAssembly, dentro il WebView, leggendo solo asset dell’APK: nessuna immagine e nessun testo escono dal dispositivo, e nulla di quanto letto finisce nei backup (solo le poche parole chiave del campo `scan`). Nell’anteprima web le foto vengono lette nello stesso modo dal browser e non vengono caricate sul server.
+
+L’unica concessione alla Content Security Policy è `data:` in `connect-src`, necessaria perché il motore WebAssembly si carichi da sé il proprio binario già incorporato negli asset; non abilita alcun traffico di rete, che resta bloccato sia dalla CSP sia da `setBlockNetworkLoads(true)`.
 
 **Disinstallare l’app o cancellarne i dati elimina la dispensa. Esporta prima un backup.** Il backup non è cifrato: scegli tu dove conservarlo. Il selettore di documenti di Android può mostrare anche provider cloud del telefono, ma l’app non li usa autonomamente.
 
@@ -73,12 +81,15 @@ Il server di anteprima serve solo file statici e l’APK; non riceve e non memor
 ## Test
 
 ```sh
-npm test              # 19 test della logica e del lettore di codici, solo Node
+npm test              # 40 test: modello dati, codici a barre, riconoscimento da due foto
+npm run test:ocr      # 5 test del motore OCR vero sulle foto di tests/fixtures
 npm start             # in un altro terminale
 npm run test:browser  # test end-to-end Chromium, Linux x86_64
 ```
 
-I test browser coprono interfaccia mobile/desktop, aggiunta prodotti, escaping HTML, codici a barre (inserimento manuale, doppioni e lettura da una foto), consumi frazionari, ricerca, scorte, lista della spesa, persistenza dopo reload, backup/ripristino, azzeramento e caricamento `file://` con bridge Android simulato. Gli screenshot di verifica finiscono in `build/screenshots/`, escluso da Git. Le dipendenze di test non sono incluse nell’APK.
+I test browser coprono interfaccia mobile/desktop, aggiunta prodotti, escaping HTML, codici a barre (inserimento manuale, doppioni e lettura da una foto), consumi frazionari, ricerca, scorte, lista della spesa, persistenza dopo reload, backup/ripristino, azzeramento, **riconoscimento con due foto** (prodotto riconosciuto con rifornimento, prodotto nuovo con scheda precompilata, parole chiave salvate) e caricamento `file://` con bridge Android simulato, dove il motore OCR viene caricato dagli asset locali come nell’APK. Gli screenshot di verifica finiscono in `build/screenshots/`, escluso da Git.
+
+`npm run test:ocr` esegue Tesseract in Node sulle foto di `tests/fixtures/` (fronte, etichetta con codice a barre valido, prodotto diverso) e verifica cosa viene letto. Richiede gli asset OCR (`npm run vendor:ocr`) e ImageMagick per decodificare le immagini: se mancano, i test vengono saltati. Le foto di prova si rigenerano con `node tests/fixtures/make.mjs`. Le dipendenze di test non sono incluse nell’APK.
 
 ## Ricompilazione con Android SDK (consigliata)
 
@@ -92,6 +103,8 @@ npm run build:apk
 ```
 
 Il comando compila le risorse con `aapt2`, il codice con `javac`, genera il DEX con `d8`, allinea e firma l’APK. Il risultato è in `downloads/`, con checksum aggiornato.
+
+Prima di compilare, lo script prepara il motore OCR negli asset con `npm run vendor:ocr` (pacchetti npm bloccati per versione e verificati con sha256: `tesseract.js-core` e `@tesseract.js-data/ita`). La cartella `android/app/src/main/assets/vendor/` è generata e **non è versionata**: senza rete la build usa quella già presente, altrimenti va rigenerata con `npm run vendor:ocr -- --force`.
 
 Se non esiste un keystore locale, lo script ne crea uno di sviluppo in `.tools/grocy-local.jks` (password di sviluppo `android`, non una credenziale di produzione). È possibile indicare `GROCY_KEYSTORE` per riusare un keystore con alias `grocy` e tale password. Per una pubblicazione reale va configurata una firma di produzione conservata in modo sicuro.
 
@@ -113,9 +126,13 @@ Il bootstrap usa versioni fissate di runtime Java, compiler Java 8, `aapt2`, stu
 ```text
 android/app/src/main/
   AndroidManifest.xml                  # nessun permesso di rete, storage o fotocamera
-  java/it/grocyprova/offline/           # WebView, persistenza, file picker e scatto nativi
+  java/it/grocyprova/offline/           # WebView, persistenza, file picker, scatto e galleria
   assets/                             # interfaccia HTML/CSS/JS, modello dati
   assets/barcode.js                   # lettore EAN-13/UPC-A/EAN-8, nessuna libreria
+  assets/recognize.js                 # parsing di nome, marca, scadenza, quantità e confronto
+  assets/ocr.js                       # ponte con Tesseract in WebAssembly, solo asset locali
+  assets/product-scan.js              # flusso delle due foto e relative schermate
+  assets/vendor/                      # motore OCR e dati italiani (generati, non versionati)
   res/                                # tema e icona vettoriale
 scripts/                              # anteprima, bootstrap e build APK
 tests/                                # test unitari e browser
